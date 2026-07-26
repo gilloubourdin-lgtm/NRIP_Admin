@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}NRIP Admin{% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='css/app.css') }}"
+    >
+</head>
+
+<body>
+    <div class="app-layout">
+
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">N</div>
+
+                <div>
+                    <div class="brand-title">NRIP Admin</div>
+                    <div class="brand-subtitle">
+                        Scientific Knowledge Base
+                    </div>
+                </div>
+            </div>
+
+            <nav class="main-nav">
+                <a
+                    href="/"
+                    class="nav-link {% if request.url.path == '/' %}active{% endif %}"
+                >
+                    <span class="nav-icon">⌂</span>
+                    Tableau de bord
+                </a>
+
+                <a
+                    href="/documents"
+                    class="nav-link {% if request.url.path.startswith('/documents') %}active{% endif %}"
+                >
+                    <span class="nav-icon">▤</span>
+                    Documents
+                </a>
+
+                <a href="#" class="nav-link disabled">
+                    <span class="nav-icon">⌕</span>
+                    Recherche
+                    <span class="nav-badge">bientôt</span>
+                </a>
+
+                <a href="#" class="nav-link disabled">
+                    <span class="nav-icon">◇</span>
+                    Knowledge Graph
+                    <span class="nav-badge">bientôt</span>
+                </a>
+
+                <a href="#" class="nav-link disabled">
+                    <span class="nav-icon">≡</span>
+                    Bibliographie
+                    <span class="nav-badge">bientôt</span>
+                </a>
+
+                <a href="#" class="nav-link disabled">
+                    <span class="nav-icon">⇩</span>
+                    Exports
+                    <span class="nav-badge">bientôt</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div>Version 0.1.0</div>
+                <div>NRIP Research Office</div>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="topbar">
+                <div>
+                    <div class="topbar-label">
+                        NRCave Research & Innovation Program
+                    </div>
+
+                    <h1>
+                        {% block page_title %}
+                        Tableau de bord
+                        {% endblock %}
+                    </h1>
+                </div>
+
+                <div class="topbar-actions">
+                    <a class="button secondary" href="/docs">
+                        API
+                    </a>
+
+                    <a class="button primary" href="/documents">
+                        Voir le catalogue
+                    </a>
+                </div>
+            </header>
+
+            <main class="content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+
+    </div>
+</body>
+</html>

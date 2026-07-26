@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}
+Documents — NRIP Admin
+{% endblock %}
+
+{% block page_title %}
+Catalogue documentaire
+{% endblock %}
+
+{% block content %}
+
+<section class="page-intro">
+    <div>
+        <span class="eyebrow">Catalogue maître</span>
+
+        <h2>{{ document_count }} documents indexés</h2>
+
+        <p>
+            Inventaire automatique de la base scientifique NRIP.
+        </p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="document-table-wrapper">
+        <table class="document-table">
+            <thead>
+                <tr>
+                    <th>Titre</th>
+                    <th>Catégorie</th>
+                    <th>Structure</th>
+                    <th>État</th>
+                    <th>Lignes</th>
+                    <th>Mots</th>
+                    <th>Modifié</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for document in documents %}
+                <tr>
+                    <td>
+                        <strong>{{ document.title }}</strong>
+                        <small>{{ document.relative_path }}</small>
+                    </td>
+
+                    <td>
+                        <span class="category-chip">
+                            {{ document.category }}
+                        </span>
+                    </td>
+
+                    <td>{{ document.structure_family }}</td>
+
+                    <td>
+                        <span class="status-chip {{ document.content_status }}">
+                            {{ document.content_status }}
+                        </span>
+                    </td>
+
+                    <td>{{ document.line_count }}</td>
+                    <td>{{ document.word_count }}</td>
+                    <td>{{ document.modified_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}

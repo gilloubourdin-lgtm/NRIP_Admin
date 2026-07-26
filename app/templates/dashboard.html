@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}
+Tableau de bord — NRIP Admin
+{% endblock %}
+
+{% block page_title %}
+Tableau de bord
+{% endblock %}
+
+{% block content %}
+
+<section class="hero-card">
+    <div>
+        <span class="eyebrow">
+            Scientific Knowledge Base
+        </span>
+
+        <h2>
+            Piloter le patrimoine scientifique du programme NRIP
+        </h2>
+
+        <p>
+            Inventaire, qualité documentaire, catégories scientifiques,
+            historique des documents et préparation du Knowledge Graph.
+        </p>
+    </div>
+
+    <div class="hero-number">
+        <strong>{{ summary.document_count }}</strong>
+        <span>documents indexés</span>
+    </div>
+</section>
+
+<section class="kpi-grid">
+
+    <article class="kpi-card">
+        <span class="kpi-label">Documents</span>
+        <strong>{{ summary.document_count }}</strong>
+        <span class="kpi-help">
+            Fichiers Markdown analysés
+        </span>
+    </article>
+
+    <article class="kpi-card">
+        <span class="kpi-label">Mots</span>
+        <strong>
+            {{ "{:,}".format(summary.word_count).replace(",", " ") }}
+        </strong>
+        <span class="kpi-help">
+            Volume total du corpus
+        </span>
+    </article>
+
+    <article class="kpi-card">
+        <span class="kpi-label">Documents substantiels</span>
+        <strong>
+            {{ summary.content_statuses.get("substantial", 0) }}
+        </strong>
+        <span class="kpi-help">
+            Plus de 100 mots et 10 lignes
+        </span>
+    </article>
+
+    <article class="kpi-card">
+        <span class="kpi-label">À compléter</span>
+        <strong>
+            {{
+                summary.content_statuses.get("empty", 0)
+                + summary.content_statuses.get("short", 0)
+            }}
+        </strong>
+        <span class="kpi-help">
+            Documents vides ou très courts
+        </span>
+    </article>
+
+</section>
+
+<section class="dashboard-grid">
+
+    <article class="panel">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Organisation</span>
+                <h3>Répartition par catégorie</h3>
+            </div>
+
+            <a href="/documents" class="text-link">
+                Catalogue complet →
+            </a>
+        </div>
+
+        <div class="category-list">
+            {% for category, count in summary.categories.items() %}
+            <div class="category-row">
+                <div>
+                    <strong>{{ category }}</strong>
+                    <span>{{ count }} document(s)</span>
+                </div>
+
+                <div class="category-value">
+                    {{ count }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Qualité</span>
+                <h3>État du contenu</h3>
+            </div>
+        </div>
+
+        <div class="status-list">
+
+            <div class="status-item">
+                <div class="status-dot substantial"></div>
+
+                <div>
+                    <strong>Substantiels</strong>
+                    <span>Documents suffisamment développés</span>
+                </div>
+
+                <div class="status-count">
+                    {{ summary.content_statuses.get("substantial", 0) }}
+                </div>
+            </div>
+
+            <div class="status-item">
+                <div class="status-dot short"></div>
+
+                <div>
+                    <strong>Courts</strong>
+                    <span>Documents à enrichir</span>
+                </div>
+
+                <div class="status-count">
+                    {{ summary.content_statuses.get("short", 0) }}
+                </div>
+            </div>
+
+            <div class="status-item">
+                <div class="status-dot empty"></div>
+
+                <div>
+                    <strong>Vides</strong>
+                    <span>Structures ou documents non rédigés</span>
+                </div>
+
+                <div class="status-count">
+                    {{ summary.content_statuses.get("empty", 0) }}
+                </div>
+            </div>
+
+            <div class="status-item">
+                <div class="status-dot warning"></div>
+
+                <div>
+                    <strong>Sans titre Markdown</strong>
+                    <span>Documents utilisant le nom de fichier</span>
+                </div>
+
+                <div class="status-count">
+                    {{ summary.documents_without_title }}
+                </div>
+            </div>
+
+        </div>
+    </article>
+
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <span class="eyebrow">Activité</span>
+            <h3>Documents récemment modifiés</h3>
+        </div>
+    </div>
+
+    <div class="document-table-wrapper">
+        <table class="document-table">
+            <thead>
+                <tr>
+                    <th>Document</th>
+                    <th>Catégorie</th>
+                    <th>État</th>
+                    <th>Mots</th>
+                    <th>Dernière modification</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for document in recent_documents %}
+                <tr>
+                    <td>
+                        <strong>{{ document.title }}</strong>
+                        <small>{{ document.relative_path }}</small>
+                    </td>
+
+                    <td>
+                        <span class="category-chip">
+                            {{ document.category }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="status-chip {{ document.content_status }}">
+                            {{ document.content_status }}
+                        </span>
+                    </td>
+
+                    <td>{{ document.word_count }}</td>
+                    <td>{{ document.modified_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}

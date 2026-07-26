@@ -1,0 +1,28 @@
+﻿:root {
+    --background: #f4f6f8;
+    --text: #18212f;
+    --primary: #183b56;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--background);
+    color: var(--text);
+}
+
+.sidebar {
+    background: var(--primary);
+    color: white;
+    padding: 24px;
+}
+
+.app-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+}
+
+.main-area {
+    padding: 24px;
+}
