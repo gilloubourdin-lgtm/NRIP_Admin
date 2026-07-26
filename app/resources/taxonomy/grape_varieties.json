@@ -1,0 +1,53 @@
+[
+  {
+    "id": "grape",
+    "name": "Cépage",
+    "category": "root",
+    "aliases": [
+      "Variété de raisin",
+      "Grape variety"
+    ]
+  },
+  {
+    "id": "grape.white",
+    "name": "Cépage blanc",
+    "category": "grape_group",
+    "parent_id": "grape"
+  },
+  {
+    "id": "grape.white.chasselas",
+    "name": "Chasselas",
+    "category": "grape_variety",
+    "parent_id": "grape.white",
+    "aliases": [
+      "Chasselas blanc"
+    ]
+  },
+  {
+    "id": "grape.white.chardonnay",
+    "name": "Chardonnay",
+    "category": "grape_variety",
+    "parent_id": "grape.white"
+  },
+  {
+    "id": "grape.red",
+    "name": "Cépage rouge",
+    "category": "grape_group",
+    "parent_id": "grape"
+  },
+  {
+    "id": "grape.red.pinot_noir",
+    "name": "Pinot noir",
+    "category": "grape_variety",
+    "parent_id": "grape.red",
+    "aliases": [
+      "Pinot Noir"
+    ]
+  },
+  {
+    "id": "grape.red.gamay",
+    "name": "Gamay",
+    "category": "grape_variety",
+    "parent_id": "grape.red"
+  }
+]

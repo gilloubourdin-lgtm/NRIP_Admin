@@ -1,0 +1,38 @@
+[
+  {
+    "id": "regulation",
+    "name": "Référentiel réglementaire",
+    "category": "root"
+  },
+  {
+    "id": "regulation.oiv",
+    "name": "OIV",
+    "category": "organization",
+    "parent_id": "regulation",
+    "aliases": [
+      "Organisation internationale de la vigne et du vin"
+    ]
+  },
+  {
+    "id": "regulation.switzerland",
+    "name": "Réglementation suisse",
+    "category": "regulation_group",
+    "parent_id": "regulation"
+  },
+  {
+    "id": "regulation.switzerland.food_law",
+    "name": "Droit alimentaire suisse",
+    "category": "regulation",
+    "parent_id": "regulation.switzerland"
+  },
+  {
+    "id": "regulation.european_union",
+    "name": "Réglementation de l'Union européenne",
+    "category": "regulation_group",
+    "parent_id": "regulation",
+    "aliases": [
+      "Réglementation européenne",
+      "EU regulation"
+    ]
+  }
+]

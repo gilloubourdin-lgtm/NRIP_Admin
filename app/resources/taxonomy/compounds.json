@@ -1,0 +1,76 @@
+[
+  {
+    "id": "compound",
+    "name": "Composé chimique",
+    "category": "root"
+  },
+  {
+    "id": "compound.aromatic",
+    "name": "Composé aromatique",
+    "category": "compound_group",
+    "parent_id": "compound"
+  },
+  {
+    "id": "compound.aromatic.volatile_phenol",
+    "name": "Phénol volatil",
+    "category": "compound_group",
+    "parent_id": "compound.aromatic",
+    "aliases": [
+      "Phénols volatils"
+    ]
+  },
+  {
+    "id": "compound.aromatic.volatile_phenol.4_ep",
+    "name": "4-éthylphénol",
+    "category": "compound",
+    "parent_id": "compound.aromatic.volatile_phenol",
+    "aliases": [
+      "4-ethylphenol",
+      "4 EP",
+      "4-EP"
+    ],
+    "tags": [
+      "Brettanomyces",
+      "défaut aromatique"
+    ]
+  },
+  {
+    "id": "compound.aromatic.volatile_phenol.4_eg",
+    "name": "4-éthylgaïacol",
+    "category": "compound",
+    "parent_id": "compound.aromatic.volatile_phenol",
+    "aliases": [
+      "4-ethylguaiacol",
+      "4 EG",
+      "4-EG"
+    ],
+    "tags": [
+      "Brettanomyces",
+      "défaut aromatique"
+    ]
+  },
+  {
+    "id": "compound.organic_acid",
+    "name": "Acide organique",
+    "category": "compound_group",
+    "parent_id": "compound"
+  },
+  {
+    "id": "compound.organic_acid.malic_acid",
+    "name": "Acide malique",
+    "category": "compound",
+    "parent_id": "compound.organic_acid"
+  },
+  {
+    "id": "compound.organic_acid.lactic_acid",
+    "name": "Acide lactique",
+    "category": "compound",
+    "parent_id": "compound.organic_acid"
+  },
+  {
+    "id": "compound.organic_acid.acetic_acid",
+    "name": "Acide acétique",
+    "category": "compound",
+    "parent_id": "compound.organic_acid"
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "organism",
+    "name": "Organisme vivant",
+    "category": "root",
+    "description": "Ensemble des organismes vivants étudiés dans le corpus."
+  },
+  {
+    "id": "organism.microorganism",
+    "name": "Microorganisme",
+    "category": "organism_group",
+    "parent_id": "organism"
+  },
+  {
+    "id": "organism.microorganism.yeast",
+    "name": "Levure",
+    "category": "microorganism_group",
+    "parent_id": "organism.microorganism",
+    "aliases": [
+      "Levures",
+      "Yeast",
+      "Yeasts"
+    ]
+  },
+  {
+    "id": "organism.microorganism.yeast.brettanomyces",
+    "name": "Brettanomyces",
+    "category": "microorganism",
+    "parent_id": "organism.microorganism.yeast",
+    "aliases": [
+      "Brett",
+      "Brett.",
+      "Dekkera"
+    ],
+    "tags": [
+      "levure d'altération",
+      "phénols volatils"
+    ],
+    "description": "Levure d'altération pouvant produire des phénols volatils dans le vin."
+  },
+  {
+    "id": "organism.microorganism.yeast.saccharomyces_cerevisiae",
+    "name": "Saccharomyces cerevisiae",
+    "category": "microorganism",
+    "parent_id": "organism.microorganism.yeast",
+    "aliases": [
+      "S. cerevisiae",
+      "Saccharomyces cerevisae"
+    ],
+    "tags": [
+      "fermentation alcoolique"
+    ]
+  },
+  {
+    "id": "organism.microorganism.bacterium",
+    "name": "Bactérie",
+    "category": "microorganism_group",
+    "parent_id": "organism.microorganism",
+    "aliases": [
+      "Bactéries",
+      "Bacterium",
+      "Bacteria"
+    ]
+  },
+  {
+    "id": "organism.microorganism.bacterium.oenococcus_oeni",
+    "name": "Oenococcus oeni",
+    "category": "microorganism",
+    "parent_id": "organism.microorganism.bacterium",
+    "tags": [
+      "fermentation malolactique"
+    ]
+  }
+]

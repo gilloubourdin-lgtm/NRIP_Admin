@@ -1,0 +1,54 @@
+[
+  {
+    "id": "wine",
+    "name": "Vin",
+    "category": "root"
+  },
+  {
+    "id": "wine.still",
+    "name": "Vin tranquille",
+    "category": "wine_group",
+    "parent_id": "wine"
+  },
+  {
+    "id": "wine.still.red",
+    "name": "Vin rouge",
+    "category": "wine_style",
+    "parent_id": "wine.still",
+    "aliases": [
+      "Vins rouges",
+      "Red wine",
+      "Red wines"
+    ]
+  },
+  {
+    "id": "wine.still.white",
+    "name": "Vin blanc",
+    "category": "wine_style",
+    "parent_id": "wine.still",
+    "aliases": [
+      "Vins blancs",
+      "White wine",
+      "White wines"
+    ]
+  },
+  {
+    "id": "wine.still.rose",
+    "name": "Vin rosé",
+    "category": "wine_style",
+    "parent_id": "wine.still",
+    "aliases": [
+      "Rosé"
+    ]
+  },
+  {
+    "id": "wine.sparkling",
+    "name": "Vin effervescent",
+    "category": "wine_style",
+    "parent_id": "wine",
+    "aliases": [
+      "Vin mousseux",
+      "Sparkling wine"
+    ]
+  }
+]

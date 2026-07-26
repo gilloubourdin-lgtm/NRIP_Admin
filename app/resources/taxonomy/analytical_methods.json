@@ -1,0 +1,89 @@
+[
+  {
+    "id": "analysis",
+    "name": "Technique analytique",
+    "category": "root",
+    "aliases": [
+      "Méthode analytique",
+      "Analyse instrumentale"
+    ]
+  },
+  {
+    "id": "analysis.chromatography",
+    "name": "Chromatographie",
+    "category": "analytical_method_group",
+    "parent_id": "analysis"
+  },
+  {
+    "id": "analysis.chromatography.gc_ms",
+    "name": "GC-MS",
+    "category": "analytical_method",
+    "parent_id": "analysis.chromatography",
+    "aliases": [
+      "GCMS",
+      "GC MS",
+      "GC/MS",
+      "Chromatographie en phase gazeuse couplée à la spectrométrie de masse"
+    ]
+  },
+  {
+    "id": "analysis.chromatography.hplc",
+    "name": "HPLC",
+    "category": "analytical_method",
+    "parent_id": "analysis.chromatography",
+    "aliases": [
+      "Chromatographie liquide à haute performance",
+      "HPLC-DAD"
+    ]
+  },
+  {
+    "id": "analysis.spectroscopy",
+    "name": "Spectroscopie",
+    "category": "analytical_method_group",
+    "parent_id": "analysis"
+  },
+  {
+    "id": "analysis.spectroscopy.ft_ir",
+    "name": "FT-IR",
+    "category": "analytical_method",
+    "parent_id": "analysis.spectroscopy",
+    "aliases": [
+      "FTIR",
+      "Spectroscopie infrarouge à transformée de Fourier"
+    ]
+  },
+  {
+    "id": "analysis.spectroscopy.nmr",
+    "name": "NMR",
+    "category": "analytical_method",
+    "parent_id": "analysis.spectroscopy",
+    "aliases": [
+      "RMN",
+      "Résonance magnétique nucléaire"
+    ]
+  },
+  {
+    "id": "analysis.molecular_biology",
+    "name": "Biologie moléculaire",
+    "category": "analytical_method_group",
+    "parent_id": "analysis"
+  },
+  {
+    "id": "analysis.molecular_biology.pcr",
+    "name": "PCR",
+    "category": "analytical_method",
+    "parent_id": "analysis.molecular_biology",
+    "aliases": [
+      "Réaction en chaîne par polymérase"
+    ]
+  },
+  {
+    "id": "analysis.molecular_biology.qpcr",
+    "name": "qPCR",
+    "category": "analytical_method",
+    "parent_id": "analysis.molecular_biology",
+    "aliases": [
+      "PCR quantitative"
+    ]
+  }
+]
