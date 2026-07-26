@@ -1,0 +1,55 @@
+{
+  "Brettanomyces": [
+    "Brettanomyces",
+    "Brett",
+    "Brett.",
+    "Dekkera"
+  ],
+  "Saccharomyces cerevisiae": [
+    "Saccharomyces cerevisiae",
+    "S. cerevisiae",
+    "Saccharomyces cerevisae"
+  ],
+  "fermentation malolactique": [
+    "fermentation malolactique",
+    "FML",
+    "malolactic fermentation"
+  ],
+  "vin rouge": [
+    "vin rouge",
+    "vins rouges",
+    "red wine",
+    "red wines"
+  ],
+  "vin blanc": [
+    "vin blanc",
+    "vins blancs",
+    "white wine",
+    "white wines"
+  ],
+  "GC-MS": [
+    "GC-MS",
+    "GCMS",
+    "GC MS",
+    "GC/MS",
+    "chromatographie gazeuse couplée à la spectrométrie de masse",
+    "chromatographie en phase gazeuse couplée à la spectrométrie de masse"
+  ],
+  "FT-IR": [
+    "FT-IR",
+    "FTIR",
+    "spectroscopie infrarouge à transformée de Fourier"
+  ],
+  "4-éthylphénol": [
+    "4-éthylphénol",
+    "4-ethylphenol",
+    "4 EP",
+    "4-EP"
+  ],
+  "4-éthylgaïacol": [
+    "4-éthylgaïacol",
+    "4-ethylguaiacol",
+    "4 EG",
+    "4-EG"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "OIV": "Organisation internationale de la vigne et du vin",
+  "GC-MS": "Chromatographie en phase gazeuse couplée à la spectrométrie de masse",
+  "HPLC": "Chromatographie liquide à haute performance",
+  "FT-IR": "Spectroscopie infrarouge à transformée de Fourier",
+  "ICP-OES": "Spectrométrie d’émission optique avec plasma à couplage inductif",
+  "NMR": "Résonance magnétique nucléaire",
+  "PCR": "Réaction en chaîne par polymérase",
+  "qPCR": "PCR quantitative",
+  "YAN": "Azote assimilable par les levures",
+  "PAC": "Pompe à chaleur"
+}
