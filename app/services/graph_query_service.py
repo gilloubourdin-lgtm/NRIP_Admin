@@ -84,6 +84,72 @@ class GraphQueryService:
             node_type="concept",
         )
 
+    def ancestors_of(
+        self,
+        concept_id: str,
+    ) -> list[GraphNode]:
+        concept_node_id = self._concept_node_id(
+            concept_id
+        )
+
+        return self._traverse(
+            start_id=concept_node_id,
+            direction="targets",
+        )
+
+    def descendants_of(
+        self,
+        concept_id: str,
+    ) -> list[GraphNode]:
+        concept_node_id = self._concept_node_id(
+            concept_id
+        )
+
+        return self._traverse(
+            start_id=concept_node_id,
+            direction="sources",
+        )
+
+    def _traverse(
+        self,
+        *,
+        start_id: str,
+        direction: str,
+    ) -> list[GraphNode]:
+        visited = {start_id}
+        queue = [start_id]
+        result: list[GraphNode] = []
+
+        while queue:
+            current_id = queue.pop(0)
+
+            if direction == "targets":
+                neighbours = self._targets(
+                    source_id=current_id,
+                    relation_type="is_a",
+                    node_type="concept",
+                )
+            elif direction == "sources":
+                neighbours = self._sources(
+                    target_id=current_id,
+                    relation_type="is_a",
+                    node_type="concept",
+                )
+            else:
+                raise ValueError(
+                    "direction de parcours invalide."
+                )
+
+            for node in neighbours:
+                if node.node_id in visited:
+                    continue
+
+                visited.add(node.node_id)
+                result.append(node)
+                queue.append(node.node_id)
+
+        return result
+
     def _targets(
         self,
         *,

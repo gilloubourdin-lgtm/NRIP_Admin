@@ -190,3 +190,92 @@ def test_invalid_graph_is_rejected():
 
     with pytest.raises(TypeError):
         GraphQueryService(None)
+
+
+def test_ancestors_of_returns_full_hierarchy():
+    service = GraphQueryService(make_graph())
+
+    nodes = service.ancestors_of(
+        "concept:brettanomyces"
+    )
+
+    assert [
+        node.label
+        for node in nodes
+    ] == [
+        "Levure",
+        "Microorganisme",
+    ]
+
+
+def test_descendants_of_returns_full_hierarchy():
+    service = GraphQueryService(make_graph())
+
+    nodes = service.descendants_of(
+        "concept:microorganism"
+    )
+
+    assert [
+        node.label
+        for node in nodes
+    ] == [
+        "Levure",
+        "Brettanomyces",
+    ]
+
+
+def test_transitive_queries_do_not_duplicate_nodes():
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:brettanomyces",
+            target_id="concept:microorganism",
+            relation_type="is_a",
+        )
+    )
+
+    service = GraphQueryService(graph)
+
+    ancestors = service.ancestors_of(
+        "concept:brettanomyces"
+    )
+
+    assert [
+        node.node_id
+        for node in ancestors
+    ] == [
+        "concept:yeast",
+        "concept:microorganism",
+    ]
+
+
+def test_transitive_queries_are_cycle_safe():
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:microorganism",
+            target_id="concept:brettanomyces",
+            relation_type="is_a",
+        )
+    )
+
+    service = GraphQueryService(graph)
+
+    ancestors = service.ancestors_of(
+        "concept:brettanomyces"
+    )
+
+    assert {
+        node.node_id
+        for node in ancestors
+    } == {
+        "concept:yeast",
+        "concept:microorganism",
+    }
+
+    assert all(
+        node.node_id != "concept:brettanomyces"
+        for node in ancestors
+    )
