@@ -188,3 +188,60 @@ def test_unknown_match_type_has_lowest_priority():
     )
 
     assert scorer.score(known) > scorer.score(unknown)
+
+
+def test_containing_specific_entity_wins_when_confidence_is_close():
+    scorer = EntityScorer()
+
+    generic = make_entity(
+        "chromatographie",
+        canonical="Chromatographie",
+        confidence=1.0,
+        match_type="exact",
+        start=38,
+        end=53,
+    )
+
+    specific = make_entity(
+        (
+            "chromatographie en phase gazeuse couplée "
+            "à la spectrométrie de masse"
+        ),
+        canonical="GC-MS",
+        confidence=0.95,
+        match_type="alias",
+        start=38,
+        end=106,
+    )
+
+    resolved = scorer.resolve_overlaps(
+        [generic, specific]
+    )
+
+    assert resolved == [specific]
+
+
+def test_low_confidence_long_entity_does_not_replace_exact_entity():
+    scorer = EntityScorer()
+
+    exact = make_entity(
+        "GC-MS",
+        confidence=1.0,
+        match_type="exact",
+        start=10,
+        end=15,
+    )
+
+    uncertain = make_entity(
+        "GC-MS analyse expérimentale",
+        confidence=0.70,
+        match_type="ontology",
+        start=10,
+        end=38,
+    )
+
+    resolved = scorer.resolve_overlaps(
+        [exact, uncertain]
+    )
+
+    assert resolved == [exact]

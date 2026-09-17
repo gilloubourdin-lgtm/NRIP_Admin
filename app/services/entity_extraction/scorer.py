@@ -23,6 +23,45 @@ class EntityScorer:
         "ontology": 1,
     }
 
+    MAX_CONTAINMENT_CONFIDENCE_GAP = 0.10
+
+    @staticmethod
+    def _contains(
+        outer: DetectedEntity,
+        inner: DetectedEntity,
+    ) -> bool:
+        if (
+            outer.start is None
+            or outer.end is None
+            or inner.start is None
+            or inner.end is None
+        ):
+            return False
+
+        return (
+            outer.start <= inner.start
+            and outer.end >= inner.end
+            and (
+                outer.start < inner.start
+                or outer.end > inner.end
+            )
+        )
+
+
+    def _prefer_containing_candidate(
+        self,
+        candidate: DetectedEntity,
+        existing: DetectedEntity,
+    ) -> bool:
+        if not self._contains(candidate, existing):
+            return False
+
+        return (
+            candidate.confidence
+            >= existing.confidence
+            - self.MAX_CONTAINMENT_CONFIDENCE_GAP
+        )
+
     def score(self, entity: DetectedEntity) -> tuple[float, int, int]:
         """
         Retourne une clé de classement pour une entité.
@@ -67,23 +106,40 @@ class EntityScorer:
         entities: list[DetectedEntity],
     ) -> list[DetectedEntity]:
         """
-        Supprime les détections concurrentes qui se chevauchent.
+        Résout les détections concurrentes qui se chevauchent.
 
-        Les meilleurs candidats sont sélectionnés en premier.
-        Le résultat final est réordonné selon sa position dans le texte.
+        Une expression reconnue qui englobe complètement une expression
+        plus courte peut être préférée lorsque leurs confiances restent
+        suffisamment proches.
         """
         ranked = self.rank(entities)
 
         selected: list[DetectedEntity] = []
 
         for candidate in ranked:
-            if any(
-                candidate.overlaps(existing)
+            overlapping = [
+                existing
                 for existing in selected
-            ):
+                if candidate.overlaps(existing)
+            ]
+
+            if not overlapping:
+                selected.append(candidate)
                 continue
 
-            selected.append(candidate)
+            if all(
+                self._prefer_containing_candidate(
+                    candidate,
+                    existing,
+                )
+                for existing in overlapping
+            ):
+                selected = [
+                    existing
+                    for existing in selected
+                    if existing not in overlapping
+                ]
+                selected.append(candidate)
 
         return sorted(
             selected,

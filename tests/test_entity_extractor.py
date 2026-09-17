@@ -147,3 +147,34 @@ def test_unknown_text_returns_empty_list(extractor):
 def test_non_string_text_is_rejected(extractor):
     with pytest.raises(TypeError):
         extractor.extract(None)  # type: ignore[arg-type]
+
+
+def test_extract_long_gc_ms_alias(extractor):
+    text = (
+        "Les échantillons ont été analysés par "
+        "chromatographie en phase gazeuse couplée "
+        "à la spectrométrie de masse."
+    )
+
+    entities = extractor.extract(text)
+
+    gc_ms = next(
+        entity
+        for entity in entities
+        if entity.canonical == "GC-MS"
+    )
+
+    assert gc_ms.value == (
+        "chromatographie en phase gazeuse couplée "
+        "à la spectrométrie de masse"
+    )
+    assert gc_ms.category == "analytical_method"
+    assert gc_ms.taxonomy_id == "analysis.chromatography.gc_ms"
+    assert gc_ms.match_type == "alias"
+    assert gc_ms.confidence == 0.95
+    assert text[gc_ms.start:gc_ms.end] == gc_ms.value
+
+    assert not any(
+        entity.canonical == "Chromatographie"
+        for entity in entities
+    )

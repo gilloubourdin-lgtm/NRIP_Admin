@@ -52,7 +52,7 @@ class SpanBuilder:
     plusieurs tokens consécutifs.
     """
 
-    def __init__(self, max_tokens: int = 6) -> None:
+    def __init__(self, max_tokens: int = 10) -> None:
         if max_tokens < 1:
             raise ValueError(
                 "max_tokens doit être supérieur ou égal à 1."
