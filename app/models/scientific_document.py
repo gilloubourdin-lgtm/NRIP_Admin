@@ -157,7 +157,7 @@ class ScientificDocument:
         seen: set[str] = set()
 
         for entity in entities:
-            key = entity.normalized_key
+            key = entity.occurrence_key
 
             if key in seen:
                 continue
@@ -231,11 +231,11 @@ class ScientificDocument:
         Retourne True si l'entité a été ajoutée.
         """
         existing_keys = {
-            current.normalized_key
+            current.occurrence_key
             for current in self.entities
         }
 
-        if entity.normalized_key in existing_keys:
+        if entity.occurrence_key in existing_keys:
             return False
 
         self.entities.append(entity)

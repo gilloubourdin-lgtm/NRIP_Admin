@@ -149,3 +149,73 @@ def test_scientific_document_calculates_confidence():
 
     assert 0.0 <= score <= 1.0
     assert score > 0.8
+
+def test_scientific_document_preserves_distinct_entity_occurrences():
+    first = DetectedEntity(
+        value="Brettanomyces",
+        canonical="Brettanomyces",
+        category="microorganism",
+        taxonomy_id="organism.microorganism.yeast.brettanomyces",
+        start=0,
+        end=13,
+    )
+
+    second = DetectedEntity(
+        value="Brett",
+        canonical="Brettanomyces",
+        category="microorganism",
+        taxonomy_id="organism.microorganism.yeast.brettanomyces",
+        start=30,
+        end=35,
+    )
+
+    document = ScientificDocument(
+        title="Multiple occurrences",
+        entities=[first, second],
+    )
+
+    assert document.entity_count == 2
+    assert document.entities == [first, second]
+
+    assert document.canonical_entities() == [
+        "Brettanomyces"
+    ]
+
+
+def test_scientific_document_rejects_only_same_entity_occurrence():
+    document = ScientificDocument(
+        title="Occurrence deduplication",
+    )
+
+    first = DetectedEntity(
+        value="GC-MS",
+        canonical="GC-MS",
+        category="analytical_method",
+        taxonomy_id="analysis.chromatography.gc_ms",
+        start=10,
+        end=15,
+    )
+
+    same_occurrence = DetectedEntity(
+        value="GC-MS",
+        canonical="GC-MS",
+        category="analytical_method",
+        taxonomy_id="analysis.chromatography.gc_ms",
+        start=10,
+        end=15,
+    )
+
+    second_occurrence = DetectedEntity(
+        value="GC/MS",
+        canonical="GC-MS",
+        category="analytical_method",
+        taxonomy_id="analysis.chromatography.gc_ms",
+        start=40,
+        end=45,
+    )
+
+    assert document.add_entity(first) is True
+    assert document.add_entity(same_occurrence) is False
+    assert document.add_entity(second_occurrence) is True
+
+    assert document.entity_count == 2

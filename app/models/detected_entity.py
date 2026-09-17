@@ -108,6 +108,24 @@ class DetectedEntity:
         return f"{self.category}:{self.canonical.casefold()}"
 
     @property
+    def occurrence_key(self) -> str:
+        """
+        Cle stable identifiant une occurrence precise d'une entite.
+
+        Lorsque les offsets sont disponibles, deux mentions du meme
+        concept a des positions differentes restent distinctes.
+
+        Sans offsets, la cle conceptuelle historique est conservee.
+        """
+        if self.start is None or self.end is None:
+            return self.normalized_key
+
+        return (
+            f"{self.normalized_key}"
+            f":{self.start}:{self.end}"
+        )
+
+    @property
     def length(self) -> int | None:
         """
         Longueur de l'entité dans le texte source.
