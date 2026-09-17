@@ -56,6 +56,37 @@ class GraphQueryService:
             node_type="document",
         )
 
+    def documents_for_concept_family(
+        self,
+        concept_id: str,
+    ) -> list[GraphNode]:
+        concept_node_id = self._concept_node_id(
+            concept_id
+        )
+
+        concept_nodes = [
+            self.graph.nodes.get(concept_node_id),
+            *self.descendants_of(concept_node_id),
+        ]
+
+        documents: list[GraphNode] = []
+        seen_document_ids: set[str] = set()
+
+        for concept_node in concept_nodes:
+            if concept_node is None:
+                continue
+
+            for document in self.documents_for_concept(
+                concept_node.node_id
+            ):
+                if document.node_id in seen_document_ids:
+                    continue
+
+                seen_document_ids.add(document.node_id)
+                documents.append(document)
+
+        return documents
+
     def parents_of(
         self,
         concept_id: str,

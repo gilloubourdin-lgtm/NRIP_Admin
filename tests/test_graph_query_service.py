@@ -279,3 +279,78 @@ def test_transitive_queries_are_cycle_safe():
         node.node_id != "concept:brettanomyces"
         for node in ancestors
     )
+
+
+def test_documents_for_concept_family_includes_descendants():
+    service = GraphQueryService(make_graph())
+
+    nodes = service.documents_for_concept_family(
+        "concept:microorganism"
+    )
+
+    assert {
+        node.node_id
+        for node in nodes
+    } == {
+        "document:NRIP-001",
+        "document:NRIP-002",
+    }
+
+
+def test_documents_for_concept_family_includes_root_concept():
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-001",
+            target_id="concept:microorganism",
+            relation_type="mentions",
+        )
+    )
+
+    service = GraphQueryService(graph)
+
+    nodes = service.documents_for_concept_family(
+        "concept:microorganism"
+    )
+
+    assert {
+        node.node_id
+        for node in nodes
+    } == {
+        "document:NRIP-001",
+        "document:NRIP-002",
+    }
+
+
+def test_documents_for_concept_family_deduplicates_documents():
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-001",
+            target_id="concept:yeast",
+            relation_type="mentions",
+        )
+    )
+
+    service = GraphQueryService(graph)
+
+    nodes = service.documents_for_concept_family(
+        "microorganism"
+    )
+
+    assert [
+        node.node_id
+        for node in nodes
+    ].count(
+        "document:NRIP-001"
+    ) == 1
+
+    assert {
+        node.node_id
+        for node in nodes
+    } == {
+        "document:NRIP-001",
+        "document:NRIP-002",
+    }
