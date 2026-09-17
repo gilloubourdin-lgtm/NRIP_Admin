@@ -104,10 +104,10 @@ Une seconde étude concerne Brettanomyces.
     assert "document:NRIP-TEST-002" in graph.nodes
     assert concept_id in graph.nodes
 
-    concept_nodes = [
+    matching_concept_nodes = [
         node
         for node in graph.nodes.values()
-        if node.node_type == "concept"
+        if node.node_id == concept_id
     ]
 
     mention_edges = [
@@ -119,7 +119,7 @@ Une seconde étude concerne Brettanomyces.
         )
     ]
 
-    assert len(concept_nodes) == 1
+    assert len(matching_concept_nodes) == 1
     assert len(mention_edges) == 2
 
     assert {

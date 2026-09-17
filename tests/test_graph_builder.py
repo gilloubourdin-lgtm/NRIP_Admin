@@ -136,19 +136,27 @@ def test_graph_builder_shares_concept_between_documents():
 
     graph = GraphBuilder().build([first, second])
 
-    concept_nodes = [
+    concept_id = (
+        "concept:"
+        "organism.microorganism.yeast.brettanomyces"
+    )
+
+    matching_concept_nodes = [
         node
         for node in graph.nodes.values()
-        if node.node_type == "concept"
+        if node.node_id == concept_id
     ]
 
     mention_edges = [
         edge
         for edge in graph.edges.values()
-        if edge.relation_type == "mentions"
+        if (
+            edge.relation_type == "mentions"
+            and edge.target_id == concept_id
+        )
     ]
 
-    assert len(concept_nodes) == 1
+    assert len(matching_concept_nodes) == 1
     assert len(mention_edges) == 2
 
 
@@ -210,3 +218,87 @@ def test_knowledge_graph_rejects_conflicting_duplicate_node():
         raise AssertionError(
             "ValueError expected for conflicting node identity"
         )
+
+
+def test_graph_builder_adds_taxonomy_ancestors():
+    document = ScientificDocument(
+        document_id="NRIP-001",
+        title="Brettanomyces study",
+        entities=[
+            make_entity(start=0, end=13),
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    expected_nodes = {
+        "concept:organism",
+        "concept:organism.microorganism",
+        "concept:organism.microorganism.yeast",
+        (
+            "concept:"
+            "organism.microorganism.yeast.brettanomyces"
+        ),
+    }
+
+    assert expected_nodes.issubset(graph.nodes)
+
+
+def test_graph_builder_adds_taxonomy_is_a_edges():
+    document = ScientificDocument(
+        document_id="NRIP-001",
+        title="Brettanomyces study",
+        entities=[
+            make_entity(start=0, end=13),
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    expected_edges = {
+        (
+            "concept:"
+            "organism.microorganism.yeast.brettanomyces:"
+            "is_a:"
+            "concept:organism.microorganism.yeast"
+        ),
+        (
+            "concept:organism.microorganism.yeast:"
+            "is_a:"
+            "concept:organism.microorganism"
+        ),
+        (
+            "concept:organism.microorganism:"
+            "is_a:"
+            "concept:organism"
+        ),
+    }
+
+    assert expected_edges.issubset(graph.edges)
+
+
+def test_graph_builder_does_not_create_is_a_for_root():
+    document = ScientificDocument(
+        document_id="NRIP-001",
+        title="Wine study",
+        plain_text="Le vin est étudié.",
+    )
+
+    from app.services.knowledge_engine import KnowledgeEngine
+
+    KnowledgeEngine().enrich(document)
+
+    graph = GraphBuilder().build([document])
+
+    assert "concept:wine" in graph.nodes
+
+    wine_edges = [
+        edge
+        for edge in graph.edges.values()
+        if (
+            edge.source_id == "concept:wine"
+            and edge.relation_type == "is_a"
+        )
+    ]
+
+    assert wine_edges == []
