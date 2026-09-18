@@ -611,3 +611,399 @@ def test_assistant_family_real_pipeline_preserves_evidence():
     assert text[
         occurrence.start:occurrence.end
     ] == "Dekkera"
+
+
+def make_relation_graph() -> KnowledgeGraph:
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-001",
+            target_id=(
+                "concept:"
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            metadata={
+                "confidence": 0.94,
+                "source_line": 7,
+                "source_text": (
+                    "Brettanomyces was studied."
+                ),
+                "created_by": "curator",
+            },
+        )
+    )
+
+    return graph
+
+
+def test_assistant_returns_relation_evidence():
+    from app.services.assistant_engine import (
+        AssistantRelationEvidence,
+    )
+
+    result = AssistantEngine(
+        graph=make_relation_graph()
+    ).lookup("Brettanomyces")
+
+    assert len(result.relation_evidence) == 1
+
+    evidence = result.relation_evidence[0]
+
+    assert isinstance(
+        evidence,
+        AssistantRelationEvidence,
+    )
+    assert evidence.document.node_id == (
+        "document:NRIP-001"
+    )
+    assert evidence.concept.label == (
+        "Brettanomyces"
+    )
+    assert evidence.relation.relation_type == (
+        "studies"
+    )
+
+
+def test_assistant_relation_evidence_preserves_provenance():
+    result = AssistantEngine(
+        graph=make_relation_graph()
+    ).lookup("Brettanomyces")
+
+    relation = result.relation_evidence[0].relation
+
+    assert relation.metadata["confidence"] == 0.94
+    assert relation.metadata["source_line"] == 7
+    assert relation.metadata["source_text"] == (
+        "Brettanomyces was studied."
+    )
+    assert relation.metadata["created_by"] == "curator"
+
+
+def test_assistant_does_not_treat_mentions_as_relation_evidence():
+    result = AssistantEngine(
+        graph=make_graph()
+    ).lookup("Brettanomyces")
+
+    assert result.found is True
+    assert result.relation_evidence == []
+
+
+def test_assistant_not_found_has_no_relation_evidence():
+    result = AssistantEngine(
+        graph=make_relation_graph()
+    ).lookup(
+        "concept scientifique inexistant"
+    )
+
+    assert result.relation_evidence == []
+
+
+def test_assistant_relation_evidence_real_pipeline():
+    from app.models.document_relation import (
+        DocumentRelation,
+    )
+    from app.models.scientific_document import (
+        ScientificDocument,
+    )
+    from app.services.graph_builder import GraphBuilder
+    from app.services.knowledge_engine import KnowledgeEngine
+
+    text = (
+        "Brettanomyces est analyse par GC-MS."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-REL-ASSISTANT",
+        title="Relation evidence",
+        plain_text=text,
+    )
+
+    KnowledgeEngine().enrich(document)
+
+    document.add_relation(
+        DocumentRelation(
+            source_id="NRIP-REL-ASSISTANT",
+            target_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            confidence=0.96,
+            source_line=1,
+            source_text=text,
+            created_by="curator",
+        )
+    )
+
+    graph = GraphBuilder().build([document])
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup("Brettanomyces")
+
+    assert result.found is True
+
+    assert len(result.evidence) == 1
+    assert len(result.relation_evidence) == 1
+
+    relation_evidence = (
+        result.relation_evidence[0]
+    )
+
+    assert relation_evidence.document.node_id == (
+        "document:NRIP-REL-ASSISTANT"
+    )
+    assert relation_evidence.concept.node_id == (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+
+    relation = relation_evidence.relation
+
+    assert relation.relation_type == "studies"
+    assert relation.metadata["confidence"] == 0.96
+    assert relation.metadata["source_line"] == 1
+    assert relation.metadata["source_text"] == text
+
+
+def make_method_relation_graph() -> KnowledgeGraph:
+    graph = KnowledgeGraph()
+
+    graph.add_node(
+        GraphNode(
+            node_id="document:NRIP-METHOD-001",
+            node_type="document",
+            label="GC-MS study",
+        )
+    )
+
+    graph.add_node(
+        GraphNode(
+            node_id=(
+                "concept:"
+                "analysis.chromatography.gc_ms"
+            ),
+            node_type="concept",
+            label="GC-MS",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-METHOD-001",
+            target_id=(
+                "concept:"
+                "analysis.chromatography.gc_ms"
+            ),
+            relation_type="uses_method",
+            metadata={
+                "confidence": 0.97,
+                "source_line": 5,
+                "source_text": (
+                    "Samples were analysed by GC-MS."
+                ),
+                "created_by": "curator",
+            },
+        )
+    )
+
+    return graph
+
+
+def test_assistant_returns_uses_method_relation_evidence():
+    result = AssistantEngine(
+        graph=make_method_relation_graph()
+    ).lookup("GC-MS")
+
+    assert result.found is True
+    assert len(result.relation_evidence) == 1
+
+    evidence = result.relation_evidence[0]
+
+    assert evidence.document.node_id == (
+        "document:NRIP-METHOD-001"
+    )
+    assert evidence.concept.node_id == (
+        "concept:analysis.chromatography.gc_ms"
+    )
+    assert evidence.relation.relation_type == (
+        "uses_method"
+    )
+    assert (
+        evidence.relation.metadata["confidence"]
+        == 0.97
+    )
+
+
+def test_assistant_family_returns_relation_evidence():
+    graph = make_relation_graph()
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup_family("Microorganisme")
+
+    assert result.found is True
+    assert len(result.relation_evidence) == 1
+
+    evidence = result.relation_evidence[0]
+
+    assert evidence.document.node_id == (
+        "document:NRIP-001"
+    )
+    assert evidence.concept.node_id == (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+    assert evidence.relation.relation_type == (
+        "studies"
+    )
+
+
+def test_assistant_family_relation_keeps_actual_concept():
+    result = AssistantEngine(
+        graph=make_relation_graph()
+    ).lookup_family("Microorganisme")
+
+    evidence = result.relation_evidence[0]
+
+    assert evidence.concept.label == (
+        "Brettanomyces"
+    )
+    assert evidence.concept.node_id != (
+        "concept:organism.microorganism"
+    )
+
+
+def test_assistant_family_without_relations_has_no_relation_evidence():
+    result = AssistantEngine(
+        graph=make_graph()
+    ).lookup_family("Microorganisme")
+
+    assert result.found is True
+    assert result.relation_evidence == []
+
+
+def test_assistant_real_pipeline_exposes_multiple_relation_types():
+    from app.models.document_relation import (
+        DocumentRelation,
+    )
+    from app.models.scientific_document import (
+        ScientificDocument,
+    )
+    from app.services.graph_builder import GraphBuilder
+    from app.services.knowledge_engine import KnowledgeEngine
+
+    text = (
+        "Brettanomyces est analyse par GC-MS."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-ASSISTANT-MULTI-REL",
+        title="Multiple scientific relations",
+        plain_text=text,
+    )
+
+    KnowledgeEngine().enrich(document)
+
+    document.add_relation(
+        DocumentRelation(
+            source_id="NRIP-ASSISTANT-MULTI-REL",
+            target_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            confidence=0.95,
+            source_line=1,
+            source_text=text,
+            created_by="curator",
+        )
+    )
+
+    document.add_relation(
+        DocumentRelation(
+            source_id="NRIP-ASSISTANT-MULTI-REL",
+            target_id=(
+                "analysis.chromatography.gc_ms"
+            ),
+            relation_type="uses_method",
+            confidence=0.98,
+            source_line=1,
+            source_text=text,
+            created_by="curator",
+        )
+    )
+
+    graph = GraphBuilder().build([document])
+    engine = AssistantEngine(graph=graph)
+
+    brett_result = engine.lookup(
+        "Brettanomyces"
+    )
+    gcms_result = engine.lookup(
+        "GC-MS"
+    )
+
+    assert brett_result.found is True
+    assert gcms_result.found is True
+
+    assert len(
+        brett_result.relation_evidence
+    ) == 1
+    assert len(
+        gcms_result.relation_evidence
+    ) == 1
+
+    brett_evidence = (
+        brett_result.relation_evidence[0]
+    )
+    gcms_evidence = (
+        gcms_result.relation_evidence[0]
+    )
+
+    assert (
+        brett_evidence.relation.relation_type
+        == "studies"
+    )
+    assert (
+        gcms_evidence.relation.relation_type
+        == "uses_method"
+    )
+
+    assert brett_evidence.document.node_id == (
+        "document:NRIP-ASSISTANT-MULTI-REL"
+    )
+    assert gcms_evidence.document.node_id == (
+        "document:NRIP-ASSISTANT-MULTI-REL"
+    )
+
+    assert (
+        brett_evidence.relation.metadata[
+            "confidence"
+        ]
+        == 0.95
+    )
+    assert (
+        gcms_evidence.relation.metadata[
+            "confidence"
+        ]
+        == 0.98
+    )
+
+    assert (
+        brett_evidence.relation.metadata[
+            "source_text"
+        ]
+        == text
+    )
+    assert (
+        gcms_evidence.relation.metadata[
+            "source_text"
+        ]
+        == text
+    )

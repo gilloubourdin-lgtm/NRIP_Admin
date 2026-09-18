@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from app.models.detected_entity import DetectedEntity
 from app.models.knowledge_graph import (
+    GraphEdge,
     GraphNode,
     KnowledgeGraph,
 )
@@ -28,6 +29,20 @@ class AssistantEvidence:
 
 
 @dataclass(slots=True)
+class AssistantRelationEvidence:
+    """
+    Preuve d'une relation scientifique explicite.
+
+    La GraphEdge reste la source de verite pour
+    le type de relation et sa provenance.
+    """
+
+    document: GraphNode
+    concept: GraphNode
+    relation: GraphEdge
+
+
+@dataclass(slots=True)
 class AssistantResult:
     """
     Resultat structure d'une recherche scientifique.
@@ -44,6 +59,11 @@ class AssistantResult:
         default_factory=list
     )
     evidence: list[AssistantEvidence] = field(
+        default_factory=list
+    )
+    relation_evidence: list[
+        AssistantRelationEvidence
+    ] = field(
         default_factory=list
     )
 
@@ -146,6 +166,11 @@ class AssistantEngine:
             evidence=self._evidence_for_concept(
                 concept_node
             ),
+            relation_evidence=(
+                self._relation_evidence_for_concept(
+                    concept_node
+                )
+            ),
         )
 
     def lookup_family(
@@ -201,10 +226,18 @@ class AssistantEngine:
         ]
 
         evidence: list[AssistantEvidence] = []
+        relation_evidence: list[
+            AssistantRelationEvidence
+        ] = []
 
         for family_concept in family_concepts:
             evidence.extend(
                 self._evidence_for_concept(
+                    family_concept
+                )
+            )
+            relation_evidence.extend(
+                self._relation_evidence_for_concept(
                     family_concept
                 )
             )
@@ -226,7 +259,50 @@ class AssistantEngine:
                 )
             ),
             evidence=evidence,
+            relation_evidence=relation_evidence,
         )
+
+    def _relation_evidence_for_concept(
+        self,
+        concept: GraphNode,
+    ) -> list[AssistantRelationEvidence]:
+        evidence: list[
+            AssistantRelationEvidence
+        ] = []
+
+        relation_types = (
+            "studies",
+            "uses_method",
+        )
+
+        for relation_type in relation_types:
+            edges = (
+                self.query_service.incoming_relations(
+                    concept.node_id,
+                    relation_type=relation_type,
+                )
+            )
+
+            for edge in edges:
+                document = self.graph.nodes.get(
+                    edge.source_id
+                )
+
+                if (
+                    document is None
+                    or document.node_type != "document"
+                ):
+                    continue
+
+                evidence.append(
+                    AssistantRelationEvidence(
+                        document=document,
+                        concept=concept,
+                        relation=edge,
+                    )
+                )
+
+        return evidence
 
     def _evidence_for_concept(
         self,
