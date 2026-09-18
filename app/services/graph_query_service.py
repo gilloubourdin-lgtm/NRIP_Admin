@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from app.models.knowledge_graph import (
+    GraphEdge,
     GraphNode,
     KnowledgeGraph,
 )
@@ -27,6 +28,122 @@ class GraphQueryService:
             )
 
         self.graph = graph
+
+    def outgoing_relations(
+        self,
+        node_id: str,
+        relation_type: str | None = None,
+    ) -> list[GraphEdge]:
+        node_id = self._graph_node_id(node_id)
+        relation_type = self._relation_type(
+            relation_type
+        )
+
+        if node_id not in self.graph.nodes:
+            return []
+
+        return [
+            edge
+            for edge in self.graph.edges.values()
+            if (
+                edge.source_id == node_id
+                and (
+                    relation_type is None
+                    or edge.relation_type
+                    == relation_type
+                )
+            )
+        ]
+
+    def incoming_relations(
+        self,
+        node_id: str,
+        relation_type: str | None = None,
+    ) -> list[GraphEdge]:
+        node_id = self._graph_node_id(node_id)
+        relation_type = self._relation_type(
+            relation_type
+        )
+
+        if node_id not in self.graph.nodes:
+            return []
+
+        return [
+            edge
+            for edge in self.graph.edges.values()
+            if (
+                edge.target_id == node_id
+                and (
+                    relation_type is None
+                    or edge.relation_type
+                    == relation_type
+                )
+            )
+        ]
+
+    def methods_for_document(
+        self,
+        document_id: str,
+    ) -> list[GraphNode]:
+        document_node_id = self._document_node_id(
+            document_id
+        )
+
+        return self._target_nodes_for_relations(
+            self.outgoing_relations(
+                document_node_id,
+                relation_type="uses_method",
+            ),
+            node_type="concept",
+        )
+
+    def concepts_studied_by_document(
+        self,
+        document_id: str,
+    ) -> list[GraphNode]:
+        document_node_id = self._document_node_id(
+            document_id
+        )
+
+        return self._target_nodes_for_relations(
+            self.outgoing_relations(
+                document_node_id,
+                relation_type="studies",
+            ),
+            node_type="concept",
+        )
+
+    def documents_using_method(
+        self,
+        concept_id: str,
+    ) -> list[GraphNode]:
+        concept_node_id = self._concept_node_id(
+            concept_id
+        )
+
+        return self._source_nodes_for_relations(
+            self.incoming_relations(
+                concept_node_id,
+                relation_type="uses_method",
+            ),
+            node_type="document",
+        )
+
+    def documents_studying_concept(
+        self,
+        concept_id: str,
+    ) -> list[GraphNode]:
+        concept_node_id = self._concept_node_id(
+            concept_id
+        )
+
+        return self._source_nodes_for_relations(
+            self.incoming_relations(
+                concept_node_id,
+                relation_type="studies",
+            ),
+            node_type="document",
+        )
 
     def concepts_for_document(
         self,
@@ -141,6 +258,48 @@ class GraphQueryService:
             direction="sources",
         )
 
+    def _target_nodes_for_relations(
+        self,
+        edges: list[GraphEdge],
+        *,
+        node_type: str,
+    ) -> list[GraphNode]:
+        nodes: list[GraphNode] = []
+
+        for edge in edges:
+            node = self.graph.nodes.get(
+                edge.target_id
+            )
+
+            if (
+                node is not None
+                and node.node_type == node_type
+            ):
+                nodes.append(node)
+
+        return nodes
+
+    def _source_nodes_for_relations(
+        self,
+        edges: list[GraphEdge],
+        *,
+        node_type: str,
+    ) -> list[GraphNode]:
+        nodes: list[GraphNode] = []
+
+        for edge in edges:
+            node = self.graph.nodes.get(
+                edge.source_id
+            )
+
+            if (
+                node is not None
+                and node.node_type == node_type
+            ):
+                nodes.append(node)
+
+        return nodes
+
     def _traverse(
         self,
         *,
@@ -236,6 +395,46 @@ class GraphQueryService:
                 nodes.append(node)
 
         return nodes
+
+    @staticmethod
+    def _graph_node_id(
+        node_id: str,
+    ) -> str:
+        if not isinstance(node_id, str):
+            raise TypeError(
+                "node_id doit etre une chaine."
+            )
+
+        value = node_id.strip()
+
+        if not value:
+            raise ValueError(
+                "node_id ne peut pas etre vide."
+            )
+
+        return value
+
+    @staticmethod
+    def _relation_type(
+        relation_type: str | None,
+    ) -> str | None:
+        if relation_type is None:
+            return None
+
+        if not isinstance(relation_type, str):
+            raise TypeError(
+                "relation_type doit etre une chaine "
+                "ou None."
+            )
+
+        value = relation_type.strip().lower()
+
+        if not value:
+            raise ValueError(
+                "relation_type ne peut pas etre vide."
+            )
+
+        return value
 
     @staticmethod
     def _document_node_id(
