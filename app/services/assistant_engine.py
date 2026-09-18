@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 
+from app.models.detected_entity import DetectedEntity
 from app.models.knowledge_graph import (
     GraphNode,
     KnowledgeGraph,
@@ -10,6 +11,20 @@ from app.services.graph_query_service import (
     GraphQueryService,
 )
 from app.services.taxonomy import TaxonomyEngine
+
+
+@dataclass(slots=True)
+class AssistantEvidence:
+    """
+    Preuve documentaire associee a un concept.
+
+    L'occurrence DetectedEntity reste la source de verite
+    pour le texte detecte, les offsets et la provenance.
+    """
+
+    document: GraphNode
+    concept: GraphNode
+    occurrence: DetectedEntity
 
 
 @dataclass(slots=True)
@@ -26,6 +41,9 @@ class AssistantResult:
         default_factory=list
     )
     documents: list[GraphNode] = field(
+        default_factory=list
+    )
+    evidence: list[AssistantEvidence] = field(
         default_factory=list
     )
 
@@ -125,4 +143,41 @@ class AssistantEngine:
                     concept_id
                 )
             ),
+            evidence=self._evidence_for_concept(
+                concept_node
+            ),
         )
+
+    def _evidence_for_concept(
+        self,
+        concept: GraphNode,
+    ) -> list[AssistantEvidence]:
+        evidence: list[AssistantEvidence] = []
+
+        for edge in self.graph.edges.values():
+            if edge.relation_type != "mentions":
+                continue
+
+            if edge.target_id != concept.node_id:
+                continue
+
+            document = self.graph.nodes.get(
+                edge.source_id
+            )
+
+            if (
+                document is None
+                or document.node_type != "document"
+            ):
+                continue
+
+            for occurrence in edge.occurrences:
+                evidence.append(
+                    AssistantEvidence(
+                        document=document,
+                        concept=concept,
+                        occurrence=occurrence,
+                    )
+                )
+
+        return evidence

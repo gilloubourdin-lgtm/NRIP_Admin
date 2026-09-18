@@ -5,6 +5,7 @@
 )
 from app.services.assistant_engine import (
     AssistantEngine,
+    AssistantEvidence,
     AssistantResult,
 )
 
@@ -232,3 +233,181 @@ def test_assistant_real_scientific_pipeline():
     ] == [
         "document:NRIP-ASSISTANT-CHECK",
     ]
+
+
+def test_assistant_returns_evidence():
+    from app.models.detected_entity import DetectedEntity
+
+    graph = make_graph()
+
+    edge = graph.edges[
+        (
+            "document:NRIP-001:"
+            "mentions:"
+            "concept:"
+            "organism.microorganism.yeast.brettanomyces"
+        )
+    ]
+
+    edge.add_occurrence(
+        DetectedEntity(
+            value="Dekkera",
+            canonical="Brettanomyces",
+            category="microorganism",
+            taxonomy_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            start=12,
+            end=19,
+            source_line=3,
+            source_text=(
+                "Presence de Dekkera dans le vin."
+            ),
+            source_section="Resultats",
+            confidence=0.95,
+            match_type="alias",
+        )
+    )
+
+    engine = AssistantEngine(graph=graph)
+
+    result = engine.lookup("Dekkera")
+
+    assert len(result.evidence) == 1
+
+    evidence = result.evidence[0]
+
+    assert isinstance(
+        evidence,
+        AssistantEvidence,
+    )
+    assert evidence.document.node_id == (
+        "document:NRIP-001"
+    )
+    assert evidence.concept.label == (
+        "Brettanomyces"
+    )
+    assert evidence.occurrence.value == "Dekkera"
+    assert evidence.occurrence.start == 12
+    assert evidence.occurrence.end == 19
+    assert evidence.occurrence.source_line == 3
+    assert evidence.occurrence.source_section == (
+        "Resultats"
+    )
+    assert evidence.occurrence.confidence == 0.95
+    assert evidence.occurrence.match_type == "alias"
+
+
+def test_assistant_preserves_multiple_occurrences():
+    from app.models.detected_entity import DetectedEntity
+
+    graph = make_graph()
+
+    edge = graph.edges[
+        (
+            "document:NRIP-001:"
+            "mentions:"
+            "concept:"
+            "organism.microorganism.yeast.brettanomyces"
+        )
+    ]
+
+    for start, end in [
+        (10, 17),
+        (50, 57),
+    ]:
+        edge.add_occurrence(
+            DetectedEntity(
+                value="Dekkera",
+                canonical="Brettanomyces",
+                category="microorganism",
+                taxonomy_id=(
+                    "organism.microorganism."
+                    "yeast.brettanomyces"
+                ),
+                start=start,
+                end=end,
+            )
+        )
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup("Brettanomyces")
+
+    assert len(result.evidence) == 2
+
+    assert [
+        evidence.occurrence.start
+        for evidence in result.evidence
+    ] == [
+        10,
+        50,
+    ]
+
+
+def test_assistant_not_found_has_no_evidence():
+    result = AssistantEngine(
+        graph=make_graph()
+    ).lookup(
+        "concept scientifique inexistant"
+    )
+
+    assert result.evidence == []
+
+
+def test_assistant_real_pipeline_preserves_evidence():
+    from app.models.scientific_document import (
+        ScientificDocument,
+    )
+    from app.services.graph_builder import GraphBuilder
+    from app.services.knowledge_engine import KnowledgeEngine
+
+    text = (
+        "Le vin contient Dekkera et peut etre "
+        "analyse par GC-MS."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-EVIDENCE-CHECK",
+        title="Evidence check",
+        plain_text=text,
+    )
+
+    KnowledgeEngine().enrich(document)
+
+    graph = GraphBuilder().build([document])
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup("Dekkera")
+
+    assert result.found is True
+    assert result.concept_label == "Brettanomyces"
+    assert len(result.evidence) == 1
+
+    evidence = result.evidence[0]
+    occurrence = evidence.occurrence
+
+    assert evidence.document.node_id == (
+        "document:NRIP-EVIDENCE-CHECK"
+    )
+    assert evidence.concept.label == "Brettanomyces"
+
+    assert occurrence.value == "Dekkera"
+    assert occurrence.canonical == "Brettanomyces"
+    assert occurrence.taxonomy_id == (
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+
+    expected_start = text.index("Dekkera")
+
+    assert occurrence.start == expected_start
+    assert occurrence.end == (
+        expected_start + len("Dekkera")
+    )
+
+    assert text[
+        occurrence.start:occurrence.end
+    ] == "Dekkera"
