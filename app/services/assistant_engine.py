@@ -148,6 +148,86 @@ class AssistantEngine:
             ),
         )
 
+    def lookup_family(
+        self,
+        query: str,
+    ) -> AssistantResult:
+        if not isinstance(query, str):
+            raise TypeError(
+                "query doit etre une chaine."
+            )
+
+        cleaned_query = query.strip()
+
+        if not cleaned_query:
+            raise ValueError(
+                "query ne peut pas etre vide."
+            )
+
+        taxonomy_node = self.taxonomy.find(
+            cleaned_query
+        )
+
+        if taxonomy_node is None:
+            return AssistantResult(
+                query=cleaned_query,
+                found=False,
+            )
+
+        concept_id = (
+            f"concept:{taxonomy_node.id}"
+        )
+
+        concept_node = self.graph.nodes.get(
+            concept_id
+        )
+
+        if (
+            concept_node is None
+            or concept_node.node_type != "concept"
+        ):
+            return AssistantResult(
+                query=cleaned_query,
+                found=False,
+                concept_id=concept_id,
+                concept_label=taxonomy_node.name,
+            )
+
+        family_concepts = [
+            concept_node,
+            *self.query_service.descendants_of(
+                concept_id
+            ),
+        ]
+
+        evidence: list[AssistantEvidence] = []
+
+        for family_concept in family_concepts:
+            evidence.extend(
+                self._evidence_for_concept(
+                    family_concept
+                )
+            )
+
+        return AssistantResult(
+            query=cleaned_query,
+            found=True,
+            concept_id=concept_id,
+            concept_label=concept_node.label,
+            ancestors=(
+                self.query_service.ancestors_of(
+                    concept_id
+                )
+            ),
+            documents=(
+                self.query_service
+                .documents_for_concept_family(
+                    concept_id
+                )
+            ),
+            evidence=evidence,
+        )
+
     def _evidence_for_concept(
         self,
         concept: GraphNode,

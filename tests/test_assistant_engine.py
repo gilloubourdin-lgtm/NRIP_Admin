@@ -411,3 +411,203 @@ def test_assistant_real_pipeline_preserves_evidence():
     assert text[
         occurrence.start:occurrence.end
     ] == "Dekkera"
+
+
+def test_assistant_family_returns_descendant_documents():
+    result = AssistantEngine(
+        graph=make_graph()
+    ).lookup_family("Microorganisme")
+
+    assert result.found is True
+    assert result.concept_id == (
+        "concept:organism.microorganism"
+    )
+    assert result.concept_label == "Microorganisme"
+
+    assert [
+        document.node_id
+        for document in result.documents
+    ] == [
+        "document:NRIP-001",
+    ]
+
+
+def test_assistant_family_preserves_evidence_concept():
+    from app.models.detected_entity import DetectedEntity
+
+    graph = make_graph()
+
+    edge = graph.edges[
+        (
+            "document:NRIP-001:"
+            "mentions:"
+            "concept:"
+            "organism.microorganism.yeast.brettanomyces"
+        )
+    ]
+
+    edge.add_occurrence(
+        DetectedEntity(
+            value="Dekkera",
+            canonical="Brettanomyces",
+            category="microorganism",
+            taxonomy_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            start=20,
+            end=27,
+            confidence=0.95,
+            match_type="alias",
+        )
+    )
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup_family("Microorganisme")
+
+    assert len(result.evidence) == 1
+
+    evidence = result.evidence[0]
+
+    assert evidence.document.node_id == (
+        "document:NRIP-001"
+    )
+    assert evidence.concept.node_id == (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+    assert evidence.concept.label == "Brettanomyces"
+    assert evidence.occurrence.value == "Dekkera"
+
+
+def test_assistant_family_includes_direct_concept():
+    from app.models.detected_entity import DetectedEntity
+    from app.models.knowledge_graph import GraphEdge
+
+    graph = make_graph()
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-001",
+            target_id="concept:organism.microorganism",
+            relation_type="mentions",
+            occurrences=[
+                DetectedEntity(
+                    value="Microorganisme",
+                    canonical="Microorganisme",
+                    category="organism_group",
+                    taxonomy_id=(
+                        "organism.microorganism"
+                    ),
+                    start=0,
+                    end=14,
+                )
+            ],
+        )
+    )
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup_family("Microorganisme")
+
+    assert [
+        evidence.concept.label
+        for evidence in result.evidence
+    ] == [
+        "Microorganisme",
+    ]
+
+
+def test_assistant_family_unknown_term():
+    result = AssistantEngine(
+        graph=make_graph()
+    ).lookup_family(
+        "concept scientifique inexistant"
+    )
+
+    assert result.found is False
+    assert result.documents == []
+    assert result.evidence == []
+
+
+def test_assistant_family_rejects_empty_query():
+    engine = AssistantEngine(
+        graph=make_graph()
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError):
+        engine.lookup_family("   ")
+
+
+def test_assistant_family_real_pipeline_preserves_evidence():
+    from app.models.scientific_document import (
+        ScientificDocument,
+    )
+    from app.services.graph_builder import GraphBuilder
+    from app.services.knowledge_engine import KnowledgeEngine
+
+    text = (
+        "Le vin contient Dekkera et peut etre "
+        "analyse par GC-MS."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-FAMILY-CHECK",
+        title="Family evidence check",
+        plain_text=text,
+    )
+
+    KnowledgeEngine().enrich(document)
+
+    graph = GraphBuilder().build([document])
+
+    result = AssistantEngine(
+        graph=graph
+    ).lookup_family("Microorganisme")
+
+    assert result.found is True
+    assert result.concept_id == (
+        "concept:organism.microorganism"
+    )
+    assert result.concept_label == "Microorganisme"
+
+    assert [
+        document.node_id
+        for document in result.documents
+    ] == [
+        "document:NRIP-FAMILY-CHECK",
+    ]
+
+    assert len(result.evidence) == 1
+
+    evidence = result.evidence[0]
+    occurrence = evidence.occurrence
+
+    assert evidence.document.node_id == (
+        "document:NRIP-FAMILY-CHECK"
+    )
+
+    assert evidence.concept.node_id == (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+    assert evidence.concept.label == "Brettanomyces"
+
+    assert occurrence.value == "Dekkera"
+    assert occurrence.canonical == "Brettanomyces"
+
+    expected_start = text.index("Dekkera")
+
+    assert occurrence.start == expected_start
+    assert occurrence.end == (
+        expected_start + len("Dekkera")
+    )
+
+    assert text[
+        occurrence.start:occurrence.end
+    ] == "Dekkera"
