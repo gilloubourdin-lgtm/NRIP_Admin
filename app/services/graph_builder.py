@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 
+from app.models.document_relation import DocumentRelation
 from app.models.knowledge_graph import (
     GraphEdge,
     GraphNode,
@@ -42,7 +43,9 @@ class GraphBuilder:
     ) -> KnowledgeGraph:
         graph = KnowledgeGraph()
 
-        for document in documents:
+        document_list = list(documents)
+
+        for document in document_list:
             if not isinstance(document, ScientificDocument):
                 raise TypeError(
                     "Tous les elements doivent etre "
@@ -97,7 +100,93 @@ class GraphBuilder:
                     taxonomy_id=entity.taxonomy_id,
                 )
 
+        for document in document_list:
+            for relation in document.relations:
+                self._add_document_relation(
+                    graph=graph,
+                    relation=relation,
+                )
+
         return graph
+
+    def _add_document_relation(
+        self,
+        *,
+        graph: KnowledgeGraph,
+        relation: DocumentRelation,
+    ) -> None:
+        source_id = self._resolve_relation_node_id(
+            graph=graph,
+            value=relation.source_id,
+        )
+        target_id = self._resolve_relation_node_id(
+            graph=graph,
+            value=relation.target_id,
+        )
+
+        if source_id is None or target_id is None:
+            return
+
+        metadata = {
+            "confidence": relation.confidence,
+            "source_line": relation.source_line,
+            "source_text": relation.source_text,
+            "created_by": relation.created_by,
+            "bidirectional": relation.bidirectional,
+        }
+
+        graph.add_edge(
+            GraphEdge(
+                source_id=source_id,
+                target_id=target_id,
+                relation_type=relation.relation_type,
+                metadata=metadata,
+            )
+        )
+
+        if relation.bidirectional:
+            graph.add_edge(
+                GraphEdge(
+                    source_id=target_id,
+                    target_id=source_id,
+                    relation_type=relation.relation_type,
+                    metadata=dict(metadata),
+                )
+            )
+
+    def _resolve_relation_node_id(
+        self,
+        *,
+        graph: KnowledgeGraph,
+        value: str,
+    ) -> str | None:
+        if value.startswith("document:"):
+            candidate = value
+        elif value.startswith("concept:"):
+            candidate = value
+        else:
+            document_candidate = (
+                f"document:{value}"
+            )
+
+            if document_candidate in graph.nodes:
+                return document_candidate
+
+            taxonomy_node = self.taxonomy.find(
+                value
+            )
+
+            if taxonomy_node is None:
+                return None
+
+            candidate = (
+                f"concept:{taxonomy_node.id}"
+            )
+
+        if candidate not in graph.nodes:
+            return None
+
+        return candidate
 
     def _add_taxonomy_path(
         self,

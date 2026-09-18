@@ -302,3 +302,209 @@ def test_graph_builder_does_not_create_is_a_for_root():
     ]
 
     assert wine_edges == []
+
+
+def test_graph_builder_adds_document_to_concept_relation():
+    from app.models.document_relation import DocumentRelation
+
+    document = ScientificDocument(
+        document_id="NRIP-REL-001",
+        title="GC-MS study",
+        entities=[
+            DetectedEntity(
+                value="GC-MS",
+                canonical="GC-MS",
+                category="analytical_method",
+                taxonomy_id="analysis.chromatography.gc_ms",
+                start=0,
+                end=5,
+            )
+        ],
+        relations=[
+            DocumentRelation(
+                source_id="NRIP-REL-001",
+                target_id="analysis.chromatography.gc_ms",
+                relation_type="uses_method",
+            )
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    edge_key = (
+        "document:NRIP-REL-001:"
+        "uses_method:"
+        "concept:analysis.chromatography.gc_ms"
+    )
+
+    assert edge_key in graph.edges
+
+    edge = graph.edges[edge_key]
+
+    assert edge.source_id == "document:NRIP-REL-001"
+    assert edge.target_id == (
+        "concept:analysis.chromatography.gc_ms"
+    )
+    assert edge.relation_type == "uses_method"
+    assert edge.occurrences == []
+
+
+def test_graph_builder_preserves_relation_provenance():
+    from app.models.document_relation import DocumentRelation
+
+    document = ScientificDocument(
+        document_id="NRIP-REL-002",
+        title="Brettanomyces study",
+        entities=[
+            make_entity(start=0, end=13),
+        ],
+        relations=[
+            DocumentRelation(
+                source_id="NRIP-REL-002",
+                target_id=(
+                    "organism.microorganism."
+                    "yeast.brettanomyces"
+                ),
+                relation_type="studies",
+                confidence=0.92,
+                source_line=7,
+                source_text=(
+                    "Brettanomyces was studied."
+                ),
+                created_by="curator",
+            )
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    edge = graph.edges[
+        (
+            "document:NRIP-REL-002:"
+            "studies:"
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        )
+    ]
+
+    assert edge.metadata["confidence"] == 0.92
+    assert edge.metadata["source_line"] == 7
+    assert edge.metadata["source_text"] == (
+        "Brettanomyces was studied."
+    )
+    assert edge.metadata["created_by"] == "curator"
+    assert edge.metadata["bidirectional"] is False
+
+
+def test_graph_builder_adds_reverse_bidirectional_relation():
+    from app.models.document_relation import DocumentRelation
+
+    first = ScientificDocument(
+        document_id="NRIP-REL-003",
+        title="First related study",
+        relations=[
+            DocumentRelation(
+                source_id="NRIP-REL-003",
+                target_id="NRIP-REL-004",
+                relation_type="similar_to",
+                bidirectional=True,
+            )
+        ],
+    )
+
+    second = ScientificDocument(
+        document_id="NRIP-REL-004",
+        title="Second related study",
+    )
+
+    graph = GraphBuilder().build(
+        [first, second]
+    )
+
+    forward_key = (
+        "document:NRIP-REL-003:"
+        "similar_to:"
+        "document:NRIP-REL-004"
+    )
+
+    reverse_key = (
+        "document:NRIP-REL-004:"
+        "similar_to:"
+        "document:NRIP-REL-003"
+    )
+
+    assert forward_key in graph.edges
+    assert reverse_key in graph.edges
+
+
+def test_graph_builder_ignores_relation_to_unknown_target():
+    from app.models.document_relation import DocumentRelation
+
+    document = ScientificDocument(
+        document_id="NRIP-REL-005",
+        title="Unknown target relation",
+        relations=[
+            DocumentRelation(
+                source_id="NRIP-REL-005",
+                target_id="unknown.scientific.concept",
+                relation_type="studies",
+            )
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    relation_edges = [
+        edge
+        for edge in graph.edges.values()
+        if edge.relation_type == "studies"
+    ]
+
+    assert relation_edges == []
+
+    assert (
+        "concept:unknown.scientific.concept"
+        not in graph.nodes
+    )
+
+
+def test_graph_builder_accepts_prefixed_relation_ids():
+    from app.models.document_relation import DocumentRelation
+
+    document = ScientificDocument(
+        document_id="NRIP-REL-006",
+        title="Prefixed relation",
+        entities=[
+            DetectedEntity(
+                value="GC-MS",
+                canonical="GC-MS",
+                category="analytical_method",
+                taxonomy_id=(
+                    "analysis.chromatography.gc_ms"
+                ),
+                start=0,
+                end=5,
+            )
+        ],
+        relations=[
+            DocumentRelation(
+                source_id="document:NRIP-REL-006",
+                target_id=(
+                    "concept:"
+                    "analysis.chromatography.gc_ms"
+                ),
+                relation_type="uses_method",
+            )
+        ],
+    )
+
+    graph = GraphBuilder().build([document])
+
+    edge_key = (
+        "document:NRIP-REL-006:"
+        "uses_method:"
+        "concept:analysis.chromatography.gc_ms"
+    )
+
+    assert edge_key in graph.edges
