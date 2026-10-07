@@ -435,3 +435,268 @@ def test_document_results_have_independent_finding_lists():
     assert first.findings == []
     assert second.findings == []
     assert first.findings is not second.findings
+
+
+def test_document_result_exposes_semantic_summary():
+    document = GraphNode(
+        node_id="document:NRIP-V6-SEMANTIC",
+        node_type="document",
+        label="Semantic study",
+    )
+
+    brett = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    gc_ms = GraphNode(
+        node_id=(
+            "concept:"
+            "analysis.chromatography.gc_ms"
+        ),
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    evidence = [
+        AssistantRelationEvidence(
+            document=document,
+            concept=brett,
+            relation=GraphEdge(
+                source_id=document.node_id,
+                target_id=brett.node_id,
+                relation_type="studies",
+            ),
+        ),
+        AssistantRelationEvidence(
+            document=document,
+            concept=gc_ms,
+            relation=GraphEdge(
+                source_id=document.node_id,
+                target_id=gc_ms.node_id,
+                relation_type="uses_method",
+            ),
+        ),
+    ]
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=evidence,
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert document_result.studied_concepts == [
+        brett
+    ]
+    assert document_result.methods == [
+        gc_ms
+    ]
+
+
+def test_document_result_semantic_summary_is_empty_without_findings():
+    document = GraphNode(
+        node_id="document:NRIP-V6-SEMANTIC-EMPTY",
+        node_type="document",
+        label="Semantic empty study",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert document_result.studied_concepts == []
+    assert document_result.methods == []
+
+
+def test_document_result_semantic_summary_ignores_other_relations():
+    document = GraphNode(
+        node_id="document:NRIP-V6-SEMANTIC-OTHER",
+        node_type="document",
+        label="Other relation study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    evidence = AssistantRelationEvidence(
+        document=document,
+        concept=concept,
+        relation=GraphEdge(
+            source_id=document.node_id,
+            target_id=concept.node_id,
+            relation_type="supports",
+        ),
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[evidence],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert document_result.studied_concepts == []
+    assert document_result.methods == []
+
+    assert len(document_result.findings) == 1
+    assert (
+        document_result.findings[0].relation_type
+        == "supports"
+    )
+
+
+def test_semantic_summary_deduplicates_concepts_but_keeps_findings():
+    document = GraphNode(
+        node_id="document:NRIP-V6-DEDUP",
+        node_type="document",
+        label="Deduplication study",
+    )
+
+    brett = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    first_relation = GraphEdge(
+        source_id=document.node_id,
+        target_id=brett.node_id,
+        relation_type="studies",
+        metadata={
+            "source_line": 10,
+        },
+    )
+
+    second_relation = GraphEdge(
+        source_id=document.node_id,
+        target_id=brett.node_id,
+        relation_type="studies",
+        metadata={
+            "source_line": 20,
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=brett,
+                relation=first_relation,
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=brett,
+                relation=second_relation,
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert len(document_result.findings) == 2
+
+    assert document_result.studied_concepts == [
+        brett
+    ]
+
+
+def test_semantic_summary_deduplicates_methods():
+    document = GraphNode(
+        node_id="document:NRIP-V6-DEDUP-METHOD",
+        node_type="document",
+        label="Method deduplication study",
+    )
+
+    gc_ms = GraphNode(
+        node_id=(
+            "concept:"
+            "analysis.chromatography.gc_ms"
+        ),
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=gc_ms,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=gc_ms.node_id,
+                    relation_type="uses_method",
+                    metadata={
+                        "source_line": 5,
+                    },
+                ),
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=gc_ms,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=gc_ms.node_id,
+                    relation_type="uses_method",
+                    metadata={
+                        "source_line": 15,
+                    },
+                ),
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert len(document_result.findings) == 2
+
+    assert document_result.methods == [
+        gc_ms
+    ]

@@ -35,6 +35,12 @@ class ScientificDocumentResult:
     findings: list[ScientificFinding] = field(
         default_factory=list
     )
+    studied_concepts: list[GraphNode] = field(
+        default_factory=list
+    )
+    methods: list[GraphNode] = field(
+        default_factory=list
+    )
 
 
 @dataclass(slots=True)
@@ -123,10 +129,48 @@ class ScientificAnswerBuilder:
                 )
             ]
 
+            studied_concepts: list[
+                GraphNode
+            ] = []
+            studied_concept_ids: set[str] = set()
+
+            methods: list[GraphNode] = []
+            method_ids: set[str] = set()
+
+            for finding in document_findings:
+                concept = finding.concept
+
+                if (
+                    finding.relation_type == "studies"
+                    and concept.node_id
+                    not in studied_concept_ids
+                ):
+                    studied_concept_ids.add(
+                        concept.node_id
+                    )
+                    studied_concepts.append(
+                        concept
+                    )
+
+                if (
+                    finding.relation_type
+                    == "uses_method"
+                    and concept.node_id
+                    not in method_ids
+                ):
+                    method_ids.add(
+                        concept.node_id
+                    )
+                    methods.append(
+                        concept
+                    )
+
             document_results.append(
                 ScientificDocumentResult(
                     document=document,
                     findings=document_findings,
+                    studied_concepts=studied_concepts,
+                    methods=methods,
                 )
             )
 
