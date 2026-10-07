@@ -51,6 +51,18 @@ class ScientificFinding:
 
 
 @dataclass(slots=True)
+class ScientificContradiction:
+    """
+    Contradiction scientifique explicitement representee
+    par une preuve relationnelle.
+    """
+
+    document: GraphNode
+    concept: GraphNode
+    finding: ScientificFinding
+
+
+@dataclass(slots=True)
 class ScientificDocumentResult:
     """
     Resultat scientifique structure pour
@@ -65,6 +77,11 @@ class ScientificDocumentResult:
         default_factory=list
     )
     methods: list[GraphNode] = field(
+        default_factory=list
+    )
+    contradictions: list[
+        ScientificContradiction
+    ] = field(
         default_factory=list
     )
 
@@ -112,6 +129,11 @@ class StructuredScientificAnswer:
     )
     document_results: list[
         ScientificDocumentResult
+    ] = field(
+        default_factory=list
+    )
+    contradictions: list[
+        ScientificContradiction
     ] = field(
         default_factory=list
     )
@@ -192,6 +214,16 @@ class ScientificAnswerBuilder:
                 )
             )
 
+        contradictions = [
+            ScientificContradiction(
+                document=finding.document,
+                concept=finding.concept,
+                finding=finding,
+            )
+            for finding in findings
+            if finding.relation_type == "contradicts"
+        ]
+
         document_results: list[
             ScientificDocumentResult
         ] = []
@@ -242,12 +274,24 @@ class ScientificAnswerBuilder:
                         concept
                     )
 
+            document_contradictions = [
+                contradiction
+                for contradiction in contradictions
+                if (
+                    contradiction.document.node_id
+                    == document.node_id
+                )
+            ]
+
             document_results.append(
                 ScientificDocumentResult(
                     document=document,
                     findings=document_findings,
                     studied_concepts=studied_concepts,
                     methods=methods,
+                    contradictions=(
+                        document_contradictions
+                    ),
                 )
             )
 
@@ -260,4 +304,5 @@ class ScientificAnswerBuilder:
             documents=list(result.documents),
             findings=findings,
             document_results=document_results,
+            contradictions=contradictions,
         )

@@ -1256,3 +1256,259 @@ def test_scientific_finding_rejects_confidence_above_one():
             relation_type="studies",
             confidence=1.01,
         )
+
+
+def test_builder_exposes_explicit_contradiction():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION",
+        node_type="document",
+        label="Contradiction study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+        metadata={
+            "confidence": 0.85,
+            "source_line": 42,
+            "source_text": "Explicit contradiction evidence",
+            "created_by": "curator",
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[("contradicts", concept.node_id)],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=edge,
+            )
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    assert len(answer.contradictions) == 1
+
+    contradiction = answer.contradictions[0]
+
+    assert contradiction.document is document
+    assert contradiction.concept is concept
+    assert contradiction.finding is answer.findings[0]
+    assert contradiction.finding.relation_type == "contradicts"
+    assert contradiction.finding.confidence == 0.85
+    assert contradiction.finding.citation is not None
+    assert contradiction.finding.citation.source_line == 42
+
+    document_result = answer.document_results[0]
+
+    assert document_result.contradictions == [
+        contradiction
+    ]
+
+
+def test_builder_does_not_infer_contradiction_from_support():
+    document = GraphNode(
+        node_id="document:NRIP-V8-NO-CONTRADICTION",
+        node_type="document",
+        label="Supporting study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="supports",
+        metadata={
+            "confidence": 0.95,
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[("supports", concept.node_id)],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=edge,
+            )
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    assert answer.contradictions == []
+    assert answer.document_results[0].contradictions == []
+
+
+def test_builder_preserves_multiple_contradictions_in_evidence_order():
+    document = GraphNode(
+        node_id="document:NRIP-V8-MULTI-CONTRADICTION",
+        node_type="document",
+        label="Multiple contradiction study",
+    )
+
+    first_concept = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="Premier concept",
+    )
+
+    second_concept = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Second concept",
+    )
+
+    first_edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=first_concept.node_id,
+        relation_type="contradicts",
+        metadata={
+            "source_line": 10,
+        },
+    )
+
+    second_edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=second_concept.node_id,
+        relation_type="contradicts",
+        metadata={
+            "source_line": 20,
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=first_concept,
+                relation=first_edge,
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=second_concept,
+                relation=second_edge,
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    assert [
+        contradiction.concept.node_id
+        for contradiction in answer.contradictions
+    ] == [
+        first_concept.node_id,
+        second_concept.node_id,
+    ]
+
+    assert [
+        contradiction.finding
+        for contradiction in answer.contradictions
+    ] == answer.findings
+
+    assert (
+        answer.document_results[0].contradictions
+        == answer.contradictions
+    )
+
+
+def test_builder_attributes_contradictions_to_their_documents():
+    first_document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-A",
+        node_type="document",
+        label="Contradiction study A",
+    )
+
+    second_document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-B",
+        node_type="document",
+        label="Contradiction study B",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    first_edge = GraphEdge(
+        source_id=first_document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+    )
+
+    second_edge = GraphEdge(
+        source_id=second_document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[
+            first_document,
+            second_document,
+        ],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=first_document,
+                concept=concept,
+                relation=first_edge,
+            ),
+            AssistantRelationEvidence(
+                document=second_document,
+                concept=concept,
+                relation=second_edge,
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    assert len(answer.contradictions) == 2
+
+    first_result = answer.document_results[0]
+    second_result = answer.document_results[1]
+
+    assert first_result.document is first_document
+    assert second_result.document is second_document
+
+    assert first_result.contradictions == [
+        answer.contradictions[0]
+    ]
+
+    assert second_result.contradictions == [
+        answer.contradictions[1]
+    ]
+
+    assert (
+        first_result.contradictions[0].document
+        is first_document
+    )
+    assert (
+        second_result.contradictions[0].document
+        is second_document
+    )
