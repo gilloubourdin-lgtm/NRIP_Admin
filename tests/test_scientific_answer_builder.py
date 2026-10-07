@@ -860,3 +860,101 @@ def test_structured_answer_builds_empty_citation_without_provenance():
     assert citation.source_line is None
     assert citation.source_text is None
     assert citation.created_by is None
+
+
+def test_findings_keep_independent_citations_for_same_concept():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CITATION-MULTI",
+        node_type="document",
+        label="Multiple citation study",
+    )
+
+    concept = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    first_relation = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="studies",
+        metadata={
+            "source_line": 10,
+            "source_text": "Première preuve.",
+            "created_by": "curator-a",
+        },
+    )
+
+    second_relation = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="studies",
+        metadata={
+            "source_line": 20,
+            "source_text": "Deuxième preuve.",
+            "created_by": "curator-b",
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=first_relation,
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=second_relation,
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert len(answer.findings) == 2
+
+    first_finding = answer.findings[0]
+    second_finding = answer.findings[1]
+
+    assert first_finding.citation is not None
+    assert second_finding.citation is not None
+
+    assert first_finding.citation is not second_finding.citation
+
+    assert first_finding.citation.document is document
+    assert second_finding.citation.document is document
+
+    assert first_finding.citation.source_line == 10
+    assert second_finding.citation.source_line == 20
+
+    assert first_finding.citation.source_text == (
+        "Première preuve."
+    )
+    assert second_finding.citation.source_text == (
+        "Deuxième preuve."
+    )
+
+    assert first_finding.citation.created_by == "curator-a"
+    assert second_finding.citation.created_by == "curator-b"
+
+    document_result = answer.document_results[0]
+
+    assert len(document_result.findings) == 2
+    assert document_result.findings[0] is first_finding
+    assert document_result.findings[1] is second_finding
+
+    assert document_result.studied_concepts == [
+        concept
+    ]
