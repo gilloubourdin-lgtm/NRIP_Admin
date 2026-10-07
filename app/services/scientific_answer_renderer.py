@@ -22,6 +22,7 @@ class ScientificAnswerRenderer:
         *,
         include_citations: bool = False,
         include_confidence: bool = False,
+        include_contradictions: bool = False,
     ) -> str:
         if not isinstance(
             answer,
@@ -80,6 +81,9 @@ class ScientificAnswerRenderer:
                 self._render_document_semantics(
                     document_result,
                     include_citations=include_citations,
+                    include_contradictions=(
+                        include_contradictions
+                    ),
                 )
             )
 
@@ -103,6 +107,7 @@ class ScientificAnswerRenderer:
         document_result: ScientificDocumentResult,
         *,
         include_citations: bool = False,
+        include_contradictions: bool = False,
     ) -> str:
         parts: list[str] = []
 
@@ -241,6 +246,53 @@ class ScientificAnswerRenderer:
                     )
                     + "."
                 )
+
+        if (
+            include_contradictions
+            and document_result.contradictions
+        ):
+            rendered_contradictions: list[str] = []
+
+            for contradiction in (
+                document_result.contradictions
+            ):
+                contradiction_text = (
+                    "Contradiction signal\u00e9e : "
+                    f"{contradiction.concept.label}."
+                )
+
+                if include_citations:
+                    citation = (
+                        contradiction.finding.citation
+                    )
+
+                    if citation is not None:
+                        citation_label = (
+                            citation.document.label
+                        )
+
+                        if (
+                            citation.source_line
+                            is not None
+                        ):
+                            citation_text = (
+                                f"[{citation_label}, ligne "
+                                f"{citation.source_line}]"
+                            )
+                        else:
+                            citation_text = (
+                                f"[{citation_label}]"
+                            )
+
+                        contradiction_text += (
+                            f" {citation_text}"
+                        )
+
+                rendered_contradictions.append(
+                    contradiction_text
+                )
+
+            parts.extend(rendered_contradictions)
 
         return " ".join(parts)
 

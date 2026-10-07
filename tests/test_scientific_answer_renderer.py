@@ -2,8 +2,16 @@
 
 import pytest
 
-from app.models.knowledge_graph import GraphNode
+from app.models.knowledge_graph import (
+    GraphEdge,
+    GraphNode,
+)
+from app.services.assistant_engine import (
+    AssistantRelationEvidence,
+    AssistantRelationSearchResult,
+)
 from app.services.scientific_answer_builder import (
+    ScientificAnswerBuilder,
     ScientificDocumentResult,
     ScientificFinding,
     StructuredScientificAnswer,
@@ -1388,4 +1396,334 @@ def test_renderer_combines_confidence_and_citations():
         "Confiance : 91 %. "
         "Vin est étudié. "
         "[Confidence citation study, ligne 12]"
+    )
+
+
+def test_renderer_can_render_explicit_contradiction():
+    document = GraphNode(
+        node_id="document:NRIP-V8-RENDER-CONTRADICTION",
+        node_type="document",
+        label="Contradiction study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+        metadata={
+            "source_line": 42,
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[
+            ("contradicts", concept.node_id),
+        ],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=edge,
+            )
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    rendered = ScientificAnswerRenderer().render(
+        answer,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond à la recherche. "
+        "Contradiction signalée : Vin."
+    )
+
+
+def test_renderer_keeps_output_when_contradictions_are_disabled():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-DISABLED",
+        node_type="document",
+        label="Contradiction study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[
+            ("contradicts", concept.node_id),
+        ],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=edge,
+            )
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    renderer = ScientificAnswerRenderer()
+
+    assert renderer.render(answer) == (
+        "1 document correspond à la recherche."
+    )
+
+    assert renderer.render(
+        answer,
+        include_contradictions=False,
+    ) == (
+        "1 document correspond à la recherche."
+    )
+
+
+def test_renderer_can_render_contradiction_citation():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-CITATION",
+        node_type="document",
+        label="Contradiction study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    edge = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="contradicts",
+        metadata={
+            "source_line": 42,
+            "source_text": "Explicit contradiction evidence",
+            "created_by": "curator",
+        },
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[
+            ("contradicts", concept.node_id),
+        ],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=edge,
+            )
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    rendered = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond à la recherche. "
+        "Contradiction signalée : Vin. "
+        "[Contradiction study, ligne 42]"
+    )
+
+
+def test_renderer_does_not_infer_contradiction_from_findings():
+    document = GraphNode(
+        node_id="document:NRIP-V8-NO-INFERENCE",
+        node_type="document",
+        label="No inference study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="contradicts",
+    )
+
+    document_result = ScientificDocumentResult(
+        document=document,
+        findings=[finding],
+        contradictions=[],
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[document_result],
+    )
+
+    rendered = ScientificAnswerRenderer().render(
+        answer,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond à la recherche."
+    )
+
+
+def test_renderer_preserves_contradiction_evidence_order():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-ORDER",
+        node_type="document",
+        label="Order study",
+    )
+
+    concept_a = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="Premier concept",
+    )
+
+    concept_b = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Second concept",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[
+            ("contradicts", concept_a.node_id),
+            ("contradicts", concept_b.node_id),
+        ],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept_a,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=concept_a.node_id,
+                    relation_type="contradicts",
+                ),
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept_b,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=concept_b.node_id,
+                    relation_type="contradicts",
+                ),
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    rendered = ScientificAnswerRenderer().render(
+        answer,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond à la recherche. "
+        "Contradiction signalée : Premier concept. "
+        "Contradiction signalée : Second concept."
+    )
+
+
+def test_renderer_attributes_contradictions_to_documents():
+    document_a = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-A",
+        node_type="document",
+        label="Study A",
+    )
+
+    document_b = GraphNode(
+        node_id="document:NRIP-V8-CONTRADICTION-B",
+        node_type="document",
+        label="Study B",
+    )
+
+    concept_a = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="Premier concept",
+    )
+
+    concept_b = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Second concept",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[
+            ("contradicts", "concept:any"),
+        ],
+        found=True,
+        documents=[
+            document_a,
+            document_b,
+        ],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document_a,
+                concept=concept_a,
+                relation=GraphEdge(
+                    source_id=document_a.node_id,
+                    target_id=concept_a.node_id,
+                    relation_type="contradicts",
+                ),
+            ),
+            AssistantRelationEvidence(
+                document=document_b,
+                concept=concept_b,
+                relation=GraphEdge(
+                    source_id=document_b.node_id,
+                    target_id=concept_b.node_id,
+                    relation_type="contradicts",
+                ),
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(result)
+
+    rendered = ScientificAnswerRenderer().render(
+        answer,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "2 documents correspondent à la recherche. "
+        "Study A : Contradiction signalée : Premier concept. "
+        "Study B : Contradiction signalée : Second concept."
     )
