@@ -1106,3 +1106,121 @@ def test_documents_matching_relations_accepts_prefixed_concept():
         "document:NRIP-MULTI-001",
         "document:NRIP-MULTI-003",
     ]
+
+
+def test_documents_matching_relations_multiple_same_type_constraints():
+    graph = KnowledgeGraph()
+
+    for document_id in (
+        "document:NRIP-SAME-001",
+        "document:NRIP-SAME-002",
+        "document:NRIP-SAME-003",
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=document_id,
+                node_type="document",
+                label=document_id,
+            )
+        )
+
+    for concept_id, label in (
+        (
+            "concept:brettanomyces",
+            "Brettanomyces",
+        ),
+        (
+            "concept:oenococcus_oeni",
+            "Oenococcus oeni",
+        ),
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=concept_id,
+                node_type="concept",
+                label=label,
+            )
+        )
+
+    # Document 1 etudie les deux concepts.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-SAME-001",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-SAME-001",
+            target_id="concept:oenococcus_oeni",
+            relation_type="studies",
+        )
+    )
+
+    # Document 2 : Brettanomyces seulement.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-SAME-002",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+
+    # Document 3 : Oenococcus oeni seulement.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-SAME-003",
+            target_id="concept:oenococcus_oeni",
+            relation_type="studies",
+        )
+    )
+
+    service = GraphQueryService(graph)
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "brettanomyces",
+            ),
+            (
+                "studies",
+                "oenococcus_oeni",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-SAME-001",
+    ]
+
+
+def test_documents_matching_relations_duplicate_constraint_is_idempotent():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "brettanomyces",
+            ),
+            (
+                "studies",
+                "brettanomyces",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-MULTI-001",
+        "document:NRIP-MULTI-002",
+    ]
