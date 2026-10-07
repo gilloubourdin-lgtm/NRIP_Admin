@@ -4,6 +4,12 @@ from app.services.assistant_engine import AssistantEngine
 from app.services.graph_builder import GraphBuilder
 from app.services.graph_query_service import GraphQueryService
 from app.services.knowledge_engine import KnowledgeEngine
+from app.services.scientific_answer_builder import (
+    ScientificAnswerBuilder,
+)
+from app.services.scientific_answer_renderer import (
+    ScientificAnswerRenderer,
+)
 
 
 def test_scientific_relation_pipeline_end_to_end():
@@ -444,3 +450,44 @@ def test_multi_relation_pipeline_end_to_end():
     } == {
         "document:NRIP-MULTI-E2E-001",
     }
+
+    # 7. Construction de la reponse scientifique structuree
+    structured = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert structured.found is True
+    assert structured.document_count == 1
+    assert structured.evidence_count == 2
+    assert len(structured.document_results) == 1
+
+    document_result = structured.document_results[0]
+
+    assert document_result.document.node_id == (
+        "document:NRIP-MULTI-E2E-001"
+    )
+
+    assert [
+        concept.label
+        for concept in document_result.studied_concepts
+    ] == [
+        "Brettanomyces",
+    ]
+
+    assert [
+        method.label
+        for method in document_result.methods
+    ] == [
+        "GC-MS",
+    ]
+
+    # 8. Generation textuelle deterministe
+    rendered = ScientificAnswerRenderer().render(
+        structured
+    )
+
+    assert rendered == (
+        "1 document correspond \u00e0 la recherche. "
+        "Brettanomyces est \u00e9tudi\u00e9. "
+        "M\u00e9thode utilis\u00e9e : GC-MS."
+    )
