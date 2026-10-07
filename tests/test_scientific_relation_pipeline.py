@@ -491,3 +491,417 @@ def test_multi_relation_pipeline_end_to_end():
         "Brettanomyces est \u00e9tudi\u00e9. "
         "M\u00e9thode utilis\u00e9e : GC-MS."
     )
+
+
+def test_contradiction_evidence_integrity_end_to_end():
+    source_text = (
+        "Le document signale une contradiction concernant le vin."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-V8-EVIDENCE-INTEGRITY",
+        title="Contradiction integrity study",
+        plain_text=source_text,
+    )
+
+    # Le pipeline reel enrichit d'abord le document.
+    # Cette etape materialise concept:wine dans le graphe.
+    KnowledgeEngine().enrich(document)
+
+    assert document.entity_count == 1
+    assert document.entities[0].canonical == "Vin"
+    assert document.entities[0].taxonomy_id == "wine"
+
+    document.add_relation(
+        DocumentRelation(
+            source_id="NRIP-V8-EVIDENCE-INTEGRITY",
+            target_id="wine",
+            relation_type="contradicts",
+            confidence=0.82,
+            source_line=42,
+            source_text=source_text,
+            created_by="curator",
+        )
+    )
+
+    # 1. ScientificDocument -> KnowledgeGraph
+    graph = GraphBuilder().build([document])
+
+    document_node_id = (
+        "document:NRIP-V8-EVIDENCE-INTEGRITY"
+    )
+    concept_node_id = "concept:wine"
+
+    edge_id = (
+        f"{document_node_id}:"
+        f"contradicts:{concept_node_id}"
+    )
+
+    assert edge_id in graph.edges
+
+    graph_edge = graph.edges[edge_id]
+
+    assert graph_edge.relation_type == "contradicts"
+    assert graph_edge.metadata["confidence"] == 0.82
+    assert graph_edge.metadata["source_line"] == 42
+    assert graph_edge.metadata["source_text"] == source_text
+    assert graph_edge.metadata["created_by"] == "curator"
+
+    # 2. KnowledgeGraph -> AssistantEngine
+    assistant = AssistantEngine(graph=graph)
+
+    result = assistant.search_relations(
+        [
+            (
+                "contradicts",
+                "wine",
+            ),
+        ]
+    )
+
+    assert result.found is True
+    assert [
+        node.node_id
+        for node in result.documents
+    ] == [
+        document_node_id,
+    ]
+
+    assert len(result.relation_evidence) == 1
+
+    evidence = result.relation_evidence[0]
+
+    assert evidence.document.node_id == document_node_id
+    assert evidence.concept.node_id == concept_node_id
+    assert evidence.relation is graph_edge
+
+    assert evidence.relation.metadata[
+        "confidence"
+    ] == 0.82
+    assert evidence.relation.metadata[
+        "source_line"
+    ] == 42
+    assert evidence.relation.metadata[
+        "source_text"
+    ] == source_text
+    assert evidence.relation.metadata[
+        "created_by"
+    ] == "curator"
+
+    # 3. AssistantEngine -> ScientificAnswerBuilder
+    structured = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert structured.found is True
+    assert structured.document_count == 1
+    assert structured.evidence_count == 1
+    assert structured.confidence == 0.82
+
+    assert len(structured.findings) == 1
+    assert len(structured.contradictions) == 1
+    assert len(structured.document_results) == 1
+
+    finding = structured.findings[0]
+    contradiction = structured.contradictions[0]
+    document_result = structured.document_results[0]
+
+    assert finding.document.node_id == document_node_id
+    assert finding.concept.node_id == concept_node_id
+    assert finding.relation_type == "contradicts"
+    assert finding.confidence == 0.82
+
+    assert finding.source_line == 42
+    assert finding.source_text == source_text
+    assert finding.created_by == "curator"
+
+    assert finding.citation is not None
+    assert finding.citation.document.node_id == (
+        document_node_id
+    )
+    assert finding.citation.source_line == 42
+    assert finding.citation.source_text == source_text
+    assert finding.citation.created_by == "curator"
+
+    assert contradiction.document.node_id == (
+        document_node_id
+    )
+    assert contradiction.concept.node_id == (
+        concept_node_id
+    )
+    assert contradiction.finding is finding
+
+    assert document_result.confidence == 0.82
+    assert document_result.contradictions == [
+        contradiction
+    ]
+
+    # 4. Structured answer -> controlled final answer
+    rendered = ScientificAnswerRenderer().render(
+        structured,
+        include_citations=True,
+        include_confidence=True,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond \u00e0 la recherche. "
+        "Confiance : 82 %. "
+        "Contradiction signal\u00e9e : Vin. "
+        "[Contradiction integrity study, ligne 42]"
+    )
+
+    # Le renderer ne doit pas exposer les metadonnees
+    # internes non destinees a la formulation finale.
+    assert source_text not in rendered
+    assert "curator" not in rendered
+
+
+def test_support_relation_is_not_contradiction_end_to_end():
+    source_text = (
+        "Le document apporte un support concernant le vin."
+    )
+
+    document = ScientificDocument(
+        document_id="NRIP-V8-SUPPORT-INTEGRITY",
+        title="Support integrity study",
+        plain_text=source_text,
+    )
+
+    KnowledgeEngine().enrich(document)
+
+    assert document.entity_count == 1
+    assert document.entities[0].taxonomy_id == "wine"
+
+    document.add_relation(
+        DocumentRelation(
+            source_id="NRIP-V8-SUPPORT-INTEGRITY",
+            target_id="wine",
+            relation_type="supports",
+            confidence=0.91,
+            source_line=12,
+            source_text=source_text,
+            created_by="curator",
+        )
+    )
+
+    graph = GraphBuilder().build([document])
+
+    assistant = AssistantEngine(graph=graph)
+
+    result = assistant.search_relations(
+        [
+            (
+                "supports",
+                "wine",
+            ),
+        ]
+    )
+
+    assert result.found is True
+    assert len(result.relation_evidence) == 1
+
+    evidence = result.relation_evidence[0]
+
+    assert evidence.relation.relation_type == "supports"
+    assert evidence.relation.metadata["confidence"] == 0.91
+    assert evidence.relation.metadata["source_line"] == 12
+    assert evidence.relation.metadata["source_text"] == source_text
+    assert evidence.relation.metadata["created_by"] == "curator"
+
+    structured = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert structured.found is True
+    assert structured.evidence_count == 1
+    assert structured.confidence == 0.91
+
+    assert len(structured.findings) == 1
+    assert structured.findings[0].relation_type == "supports"
+
+    # Une relation supports reste une preuve,
+    # mais ne devient jamais une contradiction.
+    assert structured.contradictions == []
+    assert structured.document_results[0].contradictions == []
+
+    rendered = ScientificAnswerRenderer().render(
+        structured,
+        include_citations=True,
+        include_confidence=True,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "1 document correspond \u00e0 la recherche. "
+        "Confiance : 91 %."
+    )
+
+    assert "Contradiction" not in rendered
+    assert source_text not in rendered
+    assert "curator" not in rendered
+
+
+def test_multiple_contradiction_evidence_integrity_end_to_end():
+    text_a = (
+        "Le premier document signale une contradiction "
+        "concernant le vin."
+    )
+
+    text_b = (
+        "Le second document signale une contradiction "
+        "concernant le vin."
+    )
+
+    document_a = ScientificDocument(
+        document_id="NRIP-V8-MULTI-CONTRADICTION-A",
+        title="Contradiction study A",
+        plain_text=text_a,
+    )
+
+    document_b = ScientificDocument(
+        document_id="NRIP-V8-MULTI-CONTRADICTION-B",
+        title="Contradiction study B",
+        plain_text=text_b,
+    )
+
+    engine = KnowledgeEngine()
+    engine.enrich(document_a)
+    engine.enrich(document_b)
+
+    assert document_a.entities[0].taxonomy_id == "wine"
+    assert document_b.entities[0].taxonomy_id == "wine"
+
+    document_a.add_relation(
+        DocumentRelation(
+            source_id="NRIP-V8-MULTI-CONTRADICTION-A",
+            target_id="wine",
+            relation_type="contradicts",
+            confidence=0.80,
+            source_line=10,
+            source_text=text_a,
+            created_by="curator-a",
+        )
+    )
+
+    document_b.add_relation(
+        DocumentRelation(
+            source_id="NRIP-V8-MULTI-CONTRADICTION-B",
+            target_id="wine",
+            relation_type="contradicts",
+            confidence=0.60,
+            source_line=20,
+            source_text=text_b,
+            created_by="curator-b",
+        )
+    )
+
+    graph = GraphBuilder().build(
+        [
+            document_a,
+            document_b,
+        ]
+    )
+
+    assistant = AssistantEngine(graph=graph)
+
+    result = assistant.search_relations(
+        [
+            (
+                "contradicts",
+                "wine",
+            ),
+        ]
+    )
+
+    assert result.found is True
+
+    assert [
+        document.node_id
+        for document in result.documents
+    ] == [
+        "document:NRIP-V8-MULTI-CONTRADICTION-A",
+        "document:NRIP-V8-MULTI-CONTRADICTION-B",
+    ]
+
+    assert len(result.relation_evidence) == 2
+
+    structured = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert structured.document_count == 2
+    assert structured.evidence_count == 2
+
+    # La confiance globale est la moyenne
+    # des preuves disponibles : (0.80 + 0.60) / 2.
+    assert structured.confidence == 0.70
+
+    assert [
+        finding.confidence
+        for finding in structured.findings
+    ] == [
+        0.80,
+        0.60,
+    ]
+
+    assert [
+        finding.citation.source_line
+        for finding in structured.findings
+    ] == [
+        10,
+        20,
+    ]
+
+    assert [
+        finding.citation.created_by
+        for finding in structured.findings
+    ] == [
+        "curator-a",
+        "curator-b",
+    ]
+
+    assert [
+        contradiction.finding
+        for contradiction in structured.contradictions
+    ] == structured.findings
+
+    assert len(structured.document_results) == 2
+
+    first_result = structured.document_results[0]
+    second_result = structured.document_results[1]
+
+    assert first_result.confidence == 0.80
+    assert second_result.confidence == 0.60
+
+    assert (
+        first_result.contradictions[0].finding
+        is structured.findings[0]
+    )
+    assert (
+        second_result.contradictions[0].finding
+        is structured.findings[1]
+    )
+
+    rendered = ScientificAnswerRenderer().render(
+        structured,
+        include_citations=True,
+        include_confidence=True,
+        include_contradictions=True,
+    )
+
+    assert rendered == (
+        "2 documents correspondent \u00e0 la recherche. "
+        "Confiance : 70 %. "
+        "Contradiction study A : "
+        "Contradiction signal\u00e9e : Vin. "
+        "[Contradiction study A, ligne 10] "
+        "Contradiction study B : "
+        "Contradiction signal\u00e9e : Vin. "
+        "[Contradiction study B, ligne 20]"
+    )
+
+    assert text_a not in rendered
+    assert text_b not in rendered
+    assert "curator-a" not in rendered
+    assert "curator-b" not in rendered
