@@ -40,6 +40,15 @@ class ScientificFinding:
     source_text: str | None = None
     created_by: str | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            self.confidence is not None
+            and not 0.0 <= self.confidence <= 1.0
+        ):
+            raise ValueError(
+                "confidence must be between 0.0 and 1.0"
+            )
+
 
 @dataclass(slots=True)
 class ScientificDocumentResult:
@@ -71,6 +80,19 @@ class ScientificDocumentResult:
     def method_count(self) -> int:
         return len(self.methods)
 
+    @property
+    def confidence(self) -> float | None:
+        scores = [
+            finding.confidence
+            for finding in self.findings
+            if finding.confidence is not None
+        ]
+
+        if not scores:
+            return None
+
+        return sum(scores) / len(scores)
+
 
 @dataclass(slots=True)
 class StructuredScientificAnswer:
@@ -93,6 +115,20 @@ class StructuredScientificAnswer:
     ] = field(
         default_factory=list
     )
+
+
+    @property
+    def confidence(self) -> float | None:
+        scores = [
+            finding.confidence
+            for finding in self.findings
+            if finding.confidence is not None
+        ]
+
+        if not scores:
+            return None
+
+        return sum(scores) / len(scores)
 
 
 class ScientificAnswerBuilder:

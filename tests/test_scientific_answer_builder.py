@@ -958,3 +958,301 @@ def test_findings_keep_independent_citations_for_same_concept():
     assert document_result.studied_concepts == [
         concept
     ]
+
+
+def test_document_result_aggregates_available_confidence():
+    from app.services.scientific_answer_builder import (
+        ScientificDocumentResult,
+        ScientificFinding,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-DOCUMENT",
+        node_type="document",
+        label="Confidence study",
+    )
+
+    first_concept = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="First",
+    )
+
+    second_concept = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Second",
+    )
+
+    unknown_concept = GraphNode(
+        node_id="concept:unknown",
+        node_type="concept",
+        label="Unknown",
+    )
+
+    findings = [
+        ScientificFinding(
+            document=document,
+            concept=first_concept,
+            relation_type="studies",
+            confidence=0.8,
+        ),
+        ScientificFinding(
+            document=document,
+            concept=second_concept,
+            relation_type="studies",
+            confidence=0.6,
+        ),
+        ScientificFinding(
+            document=document,
+            concept=unknown_concept,
+            relation_type="studies",
+            confidence=None,
+        ),
+    ]
+
+    document_result = ScientificDocumentResult(
+        document=document,
+        findings=findings,
+    )
+
+    assert document_result.confidence == 0.7
+
+
+def test_document_result_confidence_is_none_without_scores():
+    from app.services.scientific_answer_builder import (
+        ScientificDocumentResult,
+        ScientificFinding,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-NONE",
+        node_type="document",
+        label="Unknown confidence study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    document_result = ScientificDocumentResult(
+        document=document,
+        findings=[
+            ScientificFinding(
+                document=document,
+                concept=concept,
+                relation_type="studies",
+                confidence=None,
+            ),
+        ],
+    )
+
+    assert document_result.confidence is None
+
+
+def test_structured_answer_aggregates_finding_confidence():
+    import pytest
+
+    from app.services.scientific_answer_builder import (
+        ScientificFinding,
+        StructuredScientificAnswer,
+    )
+
+    first_document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-ANSWER-1",
+        node_type="document",
+        label="First confidence study",
+    )
+
+    second_document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-ANSWER-2",
+        node_type="document",
+        label="Second confidence study",
+    )
+
+    first_concept = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="First",
+    )
+
+    second_concept = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Second",
+    )
+
+    third_concept = GraphNode(
+        node_id="concept:third",
+        node_type="concept",
+        label="Third",
+    )
+
+    findings = [
+        ScientificFinding(
+            document=first_document,
+            concept=first_concept,
+            relation_type="studies",
+            confidence=0.9,
+        ),
+        ScientificFinding(
+            document=first_document,
+            concept=second_concept,
+            relation_type="studies",
+            confidence=0.7,
+        ),
+        ScientificFinding(
+            document=second_document,
+            concept=third_concept,
+            relation_type="studies",
+            confidence=0.5,
+        ),
+    ]
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=2,
+        evidence_count=3,
+        documents=[
+            first_document,
+            second_document,
+        ],
+        findings=findings,
+    )
+
+    assert answer.confidence == pytest.approx(0.7)
+
+
+def test_structured_answer_confidence_is_none_without_scores():
+    from app.services.scientific_answer_builder import (
+        ScientificFinding,
+        StructuredScientificAnswer,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-ANSWER-NONE",
+        node_type="document",
+        label="Unknown confidence study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[
+            ScientificFinding(
+                document=document,
+                concept=concept,
+                relation_type="studies",
+                confidence=None,
+            ),
+        ],
+    )
+
+    assert answer.confidence is None
+
+
+def test_scientific_finding_accepts_confidence_boundaries():
+    from app.services.scientific_answer_builder import (
+        ScientificFinding,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-BOUNDARIES",
+        node_type="document",
+        label="Confidence boundaries",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    low = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        confidence=0.0,
+    )
+
+    high = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        confidence=1.0,
+    )
+
+    assert low.confidence == 0.0
+    assert high.confidence == 1.0
+
+
+def test_scientific_finding_rejects_confidence_below_zero():
+    import pytest
+
+    from app.services.scientific_answer_builder import (
+        ScientificFinding,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-BELOW",
+        node_type="document",
+        label="Invalid confidence below zero",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="confidence",
+    ):
+        ScientificFinding(
+            document=document,
+            concept=concept,
+            relation_type="studies",
+            confidence=-0.01,
+        )
+
+
+def test_scientific_finding_rejects_confidence_above_one():
+    import pytest
+
+    from app.services.scientific_answer_builder import (
+        ScientificFinding,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-ABOVE",
+        node_type="document",
+        label="Invalid confidence above one",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="confidence",
+    ):
+        ScientificFinding(
+            document=document,
+            concept=concept,
+            relation_type="studies",
+            confidence=1.01,
+        )
