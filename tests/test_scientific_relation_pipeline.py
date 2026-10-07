@@ -225,3 +225,222 @@ def test_scientific_relation_pipeline_end_to_end():
         gcms_occurrence.start:
         gcms_occurrence.end
     ] == "GC-MS"
+
+
+def test_multi_relation_pipeline_end_to_end():
+    text_complete = (
+        "Brettanomyces est analyse par GC-MS."
+    )
+    text_partial = (
+        "Brettanomyces est etudie."
+    )
+
+    complete = ScientificDocument(
+        document_id="NRIP-MULTI-E2E-001",
+        title="Complete multi-relation study",
+        plain_text=text_complete,
+    )
+
+    partial = ScientificDocument(
+        document_id="NRIP-MULTI-E2E-002",
+        title="Partial multi-relation study",
+        plain_text=text_partial,
+    )
+
+    # 1. Extraction deterministe des concepts
+    engine = KnowledgeEngine()
+    engine.enrich(complete)
+    engine.enrich(partial)
+
+    assert "Brettanomyces" in {
+        entity.canonical
+        for entity in complete.entities
+    }
+
+    assert "GC-MS" in {
+        entity.canonical
+        for entity in complete.entities
+    }
+
+    assert "Brettanomyces" in {
+        entity.canonical
+        for entity in partial.entities
+    }
+
+    # 2. Relations scientifiques explicites
+    complete.add_relation(
+        DocumentRelation(
+            source_id="NRIP-MULTI-E2E-001",
+            target_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            confidence=0.95,
+            source_line=1,
+            source_text=text_complete,
+            created_by="curator",
+        )
+    )
+
+    complete.add_relation(
+        DocumentRelation(
+            source_id="NRIP-MULTI-E2E-001",
+            target_id=(
+                "analysis.chromatography.gc_ms"
+            ),
+            relation_type="uses_method",
+            confidence=0.98,
+            source_line=1,
+            source_text=text_complete,
+            created_by="curator",
+        )
+    )
+
+    partial.add_relation(
+        DocumentRelation(
+            source_id="NRIP-MULTI-E2E-002",
+            target_id=(
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            confidence=0.90,
+            source_line=1,
+            source_text=text_partial,
+            created_by="curator",
+        )
+    )
+
+    # 3. Construction du graphe avec hierarchie
+    graph = GraphBuilder().build(
+        [complete, partial]
+    )
+
+    # Les descendants sont bien relies
+    # aux familles demandees.
+    assert (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+        ":is_a:"
+        "concept:"
+        "organism.microorganism.yeast"
+        in graph.edges
+    )
+
+    assert (
+        "concept:"
+        "organism.microorganism.yeast"
+        ":is_a:"
+        "concept:organism.microorganism"
+        in graph.edges
+    )
+
+    assert (
+        "concept:"
+        "analysis.chromatography.gc_ms"
+        ":is_a:"
+        "concept:analysis.chromatography"
+        in graph.edges
+    )
+
+    assert (
+        "concept:analysis.chromatography"
+        ":is_a:"
+        "concept:analysis"
+        in graph.edges
+    )
+
+    # 4. Recherche scientifique combinee
+    assistant = AssistantEngine(graph=graph)
+
+    result = assistant.search_relations(
+        [
+            (
+                "studies",
+                "organism.microorganism",
+            ),
+            (
+                "uses_method",
+                "analysis",
+            ),
+        ],
+        include_families=True,
+    )
+
+    # AND entre contraintes :
+    # le document partiel est exclu.
+    assert result.found is True
+
+    assert [
+        document.node_id
+        for document in result.documents
+    ] == [
+        "document:NRIP-MULTI-E2E-001",
+    ]
+
+    # 5. Les preuves restent les relations reelles
+    assert len(result.relation_evidence) == 2
+
+    evidence_by_type = {
+        evidence.relation.relation_type: evidence
+        for evidence in result.relation_evidence
+    }
+
+    studies = evidence_by_type["studies"]
+    method = evidence_by_type["uses_method"]
+
+    assert studies.document.node_id == (
+        "document:NRIP-MULTI-E2E-001"
+    )
+    assert method.document.node_id == (
+        "document:NRIP-MULTI-E2E-001"
+    )
+
+    assert studies.concept.node_id == (
+        "concept:"
+        "organism.microorganism."
+        "yeast.brettanomyces"
+    )
+
+    assert method.concept.node_id == (
+        "concept:"
+        "analysis.chromatography.gc_ms"
+    )
+
+    # 6. Provenance conservee de bout en bout
+    assert studies.relation.metadata[
+        "confidence"
+    ] == 0.95
+    assert studies.relation.metadata[
+        "source_line"
+    ] == 1
+    assert studies.relation.metadata[
+        "source_text"
+    ] == text_complete
+    assert studies.relation.metadata[
+        "created_by"
+    ] == "curator"
+
+    assert method.relation.metadata[
+        "confidence"
+    ] == 0.98
+    assert method.relation.metadata[
+        "source_line"
+    ] == 1
+    assert method.relation.metadata[
+        "source_text"
+    ] == text_complete
+    assert method.relation.metadata[
+        "created_by"
+    ] == "curator"
+
+    # Aucune preuve du document incomplet
+    # ne doit survivre a l'intersection.
+    assert {
+        evidence.document.node_id
+        for evidence in result.relation_evidence
+    } == {
+        "document:NRIP-MULTI-E2E-001",
+    }
