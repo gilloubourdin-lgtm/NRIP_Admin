@@ -642,3 +642,547 @@ def test_renderer_does_not_use_finding_source_text():
     assert text == (
         "1 document correspond à la recherche."
     )
+
+
+def test_renderer_can_render_citation_for_studied_concept():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-RENDER-CITATION",
+        node_type="document",
+        label="Brettanomyces GC-MS study",
+    )
+
+    concept = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    citation = ScientificCitation(
+        document=document,
+        source_line=12,
+        source_text=(
+            "SOURCE TEXT MUST NOT BE RENDERED"
+        ),
+        created_by="curator",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        citation=citation,
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Brettanomyces est étudié. "
+        "[Brettanomyces GC-MS study, ligne 12]"
+    )
+
+    assert (
+        "SOURCE TEXT MUST NOT BE RENDERED"
+        not in text
+    )
+
+
+def test_renderer_renders_citation_without_source_line():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CITATION-NO-LINE",
+        node_type="document",
+        label="Study without line",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Vin est étudié. "
+        "[Study without line]"
+    )
+
+
+def test_renderer_can_render_citation_for_method():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-METHOD-CITATION",
+        node_type="document",
+        label="GC-MS method study",
+    )
+
+    method = GraphNode(
+        node_id="concept:gc_ms",
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=method,
+        relation_type="uses_method",
+        citation=ScientificCitation(
+            document=document,
+            source_line=42,
+            source_text=(
+                "METHOD SOURCE TEXT MUST NOT BE RENDERED"
+            ),
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                methods=[method],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Méthode utilisée : GC-MS. "
+        "[GC-MS method study, ligne 42]"
+    )
+
+    assert (
+        "METHOD SOURCE TEXT MUST NOT BE RENDERED"
+        not in text
+    )
+
+
+def test_renderer_preserves_multiple_citations_for_same_fact():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-MULTI-CITATION",
+        node_type="document",
+        label="Brett study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    first_finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+            source_line=10,
+        ),
+    )
+
+    second_finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+            source_line=20,
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=2,
+        documents=[document],
+        findings=[
+            first_finding,
+            second_finding,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[
+                    first_finding,
+                    second_finding,
+                ],
+                studied_concepts=[concept],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Brettanomyces est étudié. "
+        "[Brett study, ligne 10] "
+        "[Brett study, ligne 20]"
+    )
+
+    assert text.index(
+        "[Brett study, ligne 10]"
+    ) < text.index(
+        "[Brett study, ligne 20]"
+    )
+
+
+def test_renderer_attributes_citations_to_multiple_concepts():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-MULTI-CONCEPT-CITATION",
+        node_type="document",
+        label="Multi concept study",
+    )
+
+    brett = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    wine = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    brett_finding = ScientificFinding(
+        document=document,
+        concept=brett,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+            source_line=10,
+        ),
+    )
+
+    wine_finding = ScientificFinding(
+        document=document,
+        concept=wine,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+            source_line=20,
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=2,
+        documents=[document],
+        findings=[
+            brett_finding,
+            wine_finding,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[
+                    brett_finding,
+                    wine_finding,
+                ],
+                studied_concepts=[
+                    brett,
+                    wine,
+                ],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Concepts étudiés : "
+        "Brettanomyces "
+        "[Multi concept study, ligne 10] "
+        "et Vin "
+        "[Multi concept study, ligne 20]."
+    )
+
+
+def test_renderer_attributes_citations_to_multiple_methods():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-MULTI-METHOD-CITATION",
+        node_type="document",
+        label="Multi method study",
+    )
+
+    gc_ms = GraphNode(
+        node_id="concept:gc_ms",
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    hplc = GraphNode(
+        node_id="concept:hplc",
+        node_type="concept",
+        label="HPLC",
+    )
+
+    gc_ms_finding = ScientificFinding(
+        document=document,
+        concept=gc_ms,
+        relation_type="uses_method",
+        citation=ScientificCitation(
+            document=document,
+            source_line=30,
+        ),
+    )
+
+    hplc_finding = ScientificFinding(
+        document=document,
+        concept=hplc,
+        relation_type="uses_method",
+        citation=ScientificCitation(
+            document=document,
+            source_line=40,
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=2,
+        documents=[document],
+        findings=[
+            gc_ms_finding,
+            hplc_finding,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[
+                    gc_ms_finding,
+                    hplc_finding,
+                ],
+                methods=[
+                    gc_ms,
+                    hplc,
+                ],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Méthodes utilisées : "
+        "GC-MS "
+        "[Multi method study, ligne 30] "
+        "et HPLC "
+        "[Multi method study, ligne 40]."
+    )
+
+
+def test_renderer_keeps_v7_output_when_citations_are_disabled():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-V7-COMPAT",
+        node_type="document",
+        label="Compatibility study",
+    )
+
+    brett = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    wine = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    gc_ms = GraphNode(
+        node_id="concept:gc_ms",
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    hplc = GraphNode(
+        node_id="concept:hplc",
+        node_type="concept",
+        label="HPLC",
+    )
+
+    findings = [
+        ScientificFinding(
+            document=document,
+            concept=brett,
+            relation_type="studies",
+            citation=ScientificCitation(
+                document=document,
+                source_line=10,
+            ),
+        ),
+        ScientificFinding(
+            document=document,
+            concept=wine,
+            relation_type="studies",
+            citation=ScientificCitation(
+                document=document,
+                source_line=20,
+            ),
+        ),
+        ScientificFinding(
+            document=document,
+            concept=gc_ms,
+            relation_type="uses_method",
+            citation=ScientificCitation(
+                document=document,
+                source_line=30,
+            ),
+        ),
+        ScientificFinding(
+            document=document,
+            concept=hplc,
+            relation_type="uses_method",
+            citation=ScientificCitation(
+                document=document,
+                source_line=40,
+            ),
+        ),
+    ]
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=4,
+        documents=[document],
+        findings=findings,
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=findings,
+                studied_concepts=[
+                    brett,
+                    wine,
+                ],
+                methods=[
+                    gc_ms,
+                    hplc,
+                ],
+            ),
+        ],
+    )
+
+    renderer = ScientificAnswerRenderer()
+
+    default_text = renderer.render(
+        answer,
+    )
+
+    explicit_text = renderer.render(
+        answer,
+        include_citations=False,
+    )
+
+    expected = (
+        "1 document correspond à la recherche. "
+        "Concepts étudiés : Brettanomyces et Vin. "
+        "Méthodes utilisées : GC-MS et HPLC."
+    )
+
+    assert default_text == expected
+    assert explicit_text == expected
+    assert "[" not in default_text
+    assert "[" not in explicit_text

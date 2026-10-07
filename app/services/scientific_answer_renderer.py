@@ -19,6 +19,8 @@ class ScientificAnswerRenderer:
     def render(
         self,
         answer: StructuredScientificAnswer,
+        *,
+        include_citations: bool = False,
     ) -> str:
         if not isinstance(
             answer,
@@ -64,7 +66,8 @@ class ScientificAnswerRenderer:
         ):
             semantic_text = (
                 self._render_document_semantics(
-                    document_result
+                    document_result,
+                    include_citations=include_citations,
                 )
             )
 
@@ -86,6 +89,8 @@ class ScientificAnswerRenderer:
     def _render_document_semantics(
         self,
         document_result: ScientificDocumentResult,
+        *,
+        include_citations: bool = False,
     ) -> str:
         parts: list[str] = []
 
@@ -103,35 +108,163 @@ class ScientificAnswerRenderer:
 
         if studied_labels:
             if len(studied_labels) == 1:
-                parts.append(
+                sentence = (
                     f"{studied_labels[0]} "
                     "est \u00e9tudi\u00e9."
                 )
+
+                if include_citations:
+                    citation_text = (
+                        self._citation_for_concept(
+                            document_result,
+                            relation_type="studies",
+                            concept_id=(
+                                document_result
+                                .studied_concepts[0]
+                                .node_id
+                            ),
+                        )
+                    )
+
+                    if citation_text:
+                        sentence += (
+                            f" {citation_text}"
+                        )
+
+                parts.append(sentence)
             else:
+                rendered_labels = studied_labels
+
+                if include_citations:
+                    rendered_labels = []
+
+                    for concept in (
+                        document_result
+                        .studied_concepts
+                    ):
+                        label = concept.label
+                        citation_text = (
+                            self._citation_for_concept(
+                                document_result,
+                                relation_type="studies",
+                                concept_id=concept.node_id,
+                            )
+                        )
+
+                        if citation_text:
+                            label += (
+                                f" {citation_text}"
+                            )
+
+                        rendered_labels.append(
+                            label
+                        )
+
                 parts.append(
                     "Concepts \u00e9tudi\u00e9s : "
                     + self._join_labels(
-                        studied_labels
+                        rendered_labels
                     )
                     + "."
                 )
 
         if method_labels:
             if len(method_labels) == 1:
-                parts.append(
+                sentence = (
                     "M\u00e9thode utilis\u00e9e : "
                     f"{method_labels[0]}."
                 )
+
+                if include_citations:
+                    citation_text = (
+                        self._citation_for_concept(
+                            document_result,
+                            relation_type="uses_method",
+                            concept_id=(
+                                document_result
+                                .methods[0]
+                                .node_id
+                            ),
+                        )
+                    )
+
+                    if citation_text:
+                        sentence += (
+                            f" {citation_text}"
+                        )
+
+                parts.append(sentence)
             else:
+                rendered_labels = method_labels
+
+                if include_citations:
+                    rendered_labels = []
+
+                    for method in (
+                        document_result
+                        .methods
+                    ):
+                        label = method.label
+                        citation_text = (
+                            self._citation_for_concept(
+                                document_result,
+                                relation_type="uses_method",
+                                concept_id=method.node_id,
+                            )
+                        )
+
+                        if citation_text:
+                            label += (
+                                f" {citation_text}"
+                            )
+
+                        rendered_labels.append(
+                            label
+                        )
+
                 parts.append(
                     "M\u00e9thodes utilis\u00e9es : "
                     + self._join_labels(
-                        method_labels
+                        rendered_labels
                     )
                     + "."
                 )
 
         return " ".join(parts)
+
+    def _citation_for_concept(
+        self,
+        document_result: ScientificDocumentResult,
+        *,
+        relation_type: str,
+        concept_id: str,
+    ) -> str:
+        citations: list[str] = []
+
+        for finding in document_result.findings:
+            if (
+                finding.relation_type
+                != relation_type
+                or finding.concept.node_id
+                != concept_id
+                or finding.citation is None
+            ):
+                continue
+
+            citation = finding.citation
+            label = citation.document.label
+
+            if citation.source_line is not None:
+                citations.append(
+                    f"[{label}, ligne "
+                    f"{citation.source_line}]"
+                )
+            else:
+                citations.append(
+                    f"[{label}]"
+                )
+
+        return " ".join(citations)
 
     def _join_labels(
         self,
