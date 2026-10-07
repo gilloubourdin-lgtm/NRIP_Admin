@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from app.services.scientific_answer_builder import (
+    ScientificDocumentResult,
     StructuredScientificAnswer,
 )
 
@@ -34,7 +35,7 @@ class ScientificAnswerRenderer:
         ):
             return (
                 "Aucun document ne correspond "
-                "a la recherche."
+                "\u00e0 la recherche."
             )
 
         document_count = len(
@@ -44,12 +45,12 @@ class ScientificAnswerRenderer:
         if document_count == 1:
             introduction = (
                 "1 document correspond "
-                "a la recherche."
+                "\u00e0 la recherche."
             )
         else:
             introduction = (
                 f"{document_count} documents "
-                "correspondent a la recherche."
+                "correspondent \u00e0 la recherche."
             )
 
         parts = [introduction]
@@ -84,7 +85,7 @@ class ScientificAnswerRenderer:
 
     def _render_document_semantics(
         self,
-        document_result,
+        document_result: ScientificDocumentResult,
     ) -> str:
         parts: list[str] = []
 
@@ -104,26 +105,50 @@ class ScientificAnswerRenderer:
             if len(studied_labels) == 1:
                 parts.append(
                     f"{studied_labels[0]} "
-                    "est etudie."
+                    "est \u00e9tudi\u00e9."
                 )
             else:
                 parts.append(
-                    "Concepts etudies : "
-                    + ", ".join(studied_labels)
+                    "Concepts \u00e9tudi\u00e9s : "
+                    + self._join_labels(
+                        studied_labels
+                    )
                     + "."
                 )
 
         if method_labels:
             if len(method_labels) == 1:
                 parts.append(
-                    "Methode utilisee : "
+                    "M\u00e9thode utilis\u00e9e : "
                     f"{method_labels[0]}."
                 )
             else:
                 parts.append(
-                    "Methodes utilisees : "
-                    + ", ".join(method_labels)
+                    "M\u00e9thodes utilis\u00e9es : "
+                    + self._join_labels(
+                        method_labels
+                    )
                     + "."
                 )
 
         return " ".join(parts)
+
+    def _join_labels(
+        self,
+        labels: list[str],
+    ) -> str:
+        if not labels:
+            return ""
+
+        if len(labels) == 1:
+            return labels[0]
+
+        if len(labels) == 2:
+            return (
+                f"{labels[0]} et {labels[1]}"
+            )
+
+        return (
+            ", ".join(labels[:-1])
+            + f" et {labels[-1]}"
+        )

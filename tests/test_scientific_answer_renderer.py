@@ -62,9 +62,9 @@ def test_renderer_builds_deterministic_text():
     )
 
     assert text == (
-        "1 document correspond a la recherche. "
-        "Brettanomyces est etudie. "
-        "Methode utilisee : GC-MS."
+        "1 document correspond à la recherche. "
+        "Brettanomyces est étudié. "
+        "Méthode utilisée : GC-MS."
     )
 
 
@@ -81,7 +81,7 @@ def test_renderer_handles_no_result():
 
     assert text == (
         "Aucun document ne correspond "
-        "a la recherche."
+        "à la recherche."
     )
 
 
@@ -204,7 +204,7 @@ def test_renderer_handles_multiple_documents():
 
     assert text.startswith(
         "2 documents correspondent "
-        "a la recherche."
+        "à la recherche."
     )
     assert "Brettanomyces" in text
     assert "GC-MS" in text
@@ -234,7 +234,7 @@ def test_renderer_handles_document_without_semantic_summary():
     )
 
     assert text == (
-        "1 document correspond a la recherche."
+        "1 document correspond à la recherche."
     )
 
 
@@ -276,7 +276,7 @@ def test_renderer_does_not_invent_text_from_other_findings():
     )
 
     assert text == (
-        "1 document correspond a la recherche."
+        "1 document correspond à la recherche."
     )
     assert "Vin" not in text
     assert "supports" not in text
@@ -332,9 +332,9 @@ def test_renderer_attributes_semantics_to_each_document():
     )
 
     assert text == (
-        "2 documents correspondent a la recherche. "
-        "Brett study : Brettanomyces est etudie. "
-        "GC-MS study : Methode utilisee : GC-MS."
+        "2 documents correspondent à la recherche. "
+        "Brett study : Brettanomyces est étudié. "
+        "GC-MS study : Méthode utilisée : GC-MS."
     )
 
 
@@ -346,9 +346,9 @@ def test_renderer_keeps_single_document_contract():
     )
 
     assert text == (
-        "1 document correspond a la recherche. "
-        "Brettanomyces est etudie. "
-        "Methode utilisee : GC-MS."
+        "1 document correspond à la recherche. "
+        "Brettanomyces est étudié. "
+        "Méthode utilisée : GC-MS."
     )
 
 
@@ -395,8 +395,93 @@ def test_renderer_skips_empty_document_in_multi_document_answer():
     )
 
     assert text == (
-        "2 documents correspondent a la recherche. "
-        "Brett study : Brettanomyces est etudie."
+        "2 documents correspondent à la recherche. "
+        "Brett study : Brettanomyces est étudié."
     )
 
     assert "Empty study" not in text
+
+
+def test_renderer_uses_natural_french_for_single_document():
+    answer = make_structured_answer()
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Brettanomyces est étudié. "
+        "Méthode utilisée : GC-MS."
+    )
+
+
+def test_renderer_uses_natural_french_enumerations():
+    document = GraphNode(
+        node_id="document:NRIP-V7-FR",
+        node_type="document",
+        label="Étude œnologique",
+    )
+
+    brett = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    oenococcus = GraphNode(
+        node_id="concept:oenococcus_oeni",
+        node_type="concept",
+        label="Oenococcus oeni",
+    )
+
+    gc_ms = GraphNode(
+        node_id="concept:gc_ms",
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    hplc = GraphNode(
+        node_id="concept:hplc",
+        node_type="concept",
+        label="HPLC",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=4,
+        documents=[document],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                studied_concepts=[
+                    brett,
+                    oenococcus,
+                ],
+                methods=[
+                    gc_ms,
+                    hplc,
+                ],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Concepts étudiés : Brettanomyces "
+        "et Oenococcus oeni. "
+        "Méthodes utilisées : GC-MS et HPLC."
+    )
+
+
+def test_renderer_uses_natural_french_list_of_three():
+    renderer = ScientificAnswerRenderer()
+
+    assert renderer._join_labels(
+        ["A", "B", "C"]
+    ) == "A, B et C"
