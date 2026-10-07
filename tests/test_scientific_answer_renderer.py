@@ -485,3 +485,160 @@ def test_renderer_uses_natural_french_list_of_three():
     assert renderer._join_labels(
         ["A", "B", "C"]
     ) == "A, B et C"
+
+
+def test_renderer_preserves_structured_semantic_order():
+    document = GraphNode(
+        node_id="document:NRIP-V7-ORDER",
+        node_type="document",
+        label="Order study",
+    )
+
+    first = GraphNode(
+        node_id="concept:first",
+        node_type="concept",
+        label="Premier",
+    )
+
+    second = GraphNode(
+        node_id="concept:second",
+        node_type="concept",
+        label="Deuxième",
+    )
+
+    third = GraphNode(
+        node_id="concept:third",
+        node_type="concept",
+        label="Troisième",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=3,
+        documents=[document],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                studied_concepts=[
+                    first,
+                    second,
+                    third,
+                ],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert (
+        "Concepts étudiés : "
+        "Premier, Deuxième et Troisième."
+        in text
+    )
+
+
+def test_renderer_preserves_document_order():
+    first_document = GraphNode(
+        node_id="document:NRIP-V7-ORDER-1",
+        node_type="document",
+        label="Premier document",
+    )
+
+    second_document = GraphNode(
+        node_id="document:NRIP-V7-ORDER-2",
+        node_type="document",
+        label="Deuxième document",
+    )
+
+    first_concept = GraphNode(
+        node_id="concept:first-order",
+        node_type="concept",
+        label="Concept A",
+    )
+
+    second_concept = GraphNode(
+        node_id="concept:second-order",
+        node_type="concept",
+        label="Concept B",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=2,
+        evidence_count=2,
+        documents=[
+            first_document,
+            second_document,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=first_document,
+                studied_concepts=[first_concept],
+            ),
+            ScientificDocumentResult(
+                document=second_document,
+                studied_concepts=[second_concept],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text.index(
+        "Premier document"
+    ) < text.index(
+        "Deuxième document"
+    )
+
+
+def test_renderer_does_not_use_finding_source_text():
+    document = GraphNode(
+        node_id="document:NRIP-V7-SOURCE-TEXT",
+        node_type="document",
+        label="Source text study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:source-text",
+        node_type="concept",
+        label="Concept contrôlé",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="supports",
+        source_text=(
+            "AFFIRMATION NON AUTORISÉE "
+            "QUI NE DOIT PAS ÊTRE GÉNÉRÉE"
+        ),
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert "AFFIRMATION NON AUTORISÉE" not in text
+    assert "Concept contrôlé" not in text
+    assert text == (
+        "1 document correspond à la recherche."
+    )
