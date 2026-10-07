@@ -1007,3 +1007,314 @@ def test_assistant_real_pipeline_exposes_multiple_relation_types():
         ]
         == text
     )
+
+
+def make_combined_relation_search_graph():
+    graph = KnowledgeGraph()
+
+    graph.add_node(
+        GraphNode(
+            node_id="document:NRIP-COMBINED-001",
+            node_type="document",
+            label="Combined scientific study",
+        )
+    )
+
+    graph.add_node(
+        GraphNode(
+            node_id="document:NRIP-COMBINED-002",
+            node_type="document",
+            label="Partial scientific study",
+        )
+    )
+
+    for concept_id, label in (
+        (
+            "concept:organism.microorganism",
+            "Microorganisme",
+        ),
+        (
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces",
+            "Brettanomyces",
+        ),
+        (
+            "concept:analysis",
+            "Analyse",
+        ),
+        (
+            "concept:analysis.chromatography.gc_ms",
+            "GC-MS",
+        ),
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=concept_id,
+                node_type="concept",
+                label=label,
+            )
+        )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id=(
+                "concept:"
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            target_id="concept:organism.microorganism",
+            relation_type="is_a",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id=(
+                "concept:analysis.chromatography.gc_ms"
+            ),
+            target_id="concept:analysis",
+            relation_type="is_a",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-COMBINED-001",
+            target_id=(
+                "concept:"
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+            metadata={
+                "confidence": 0.95,
+                "source_line": 4,
+                "source_text": (
+                    "Brettanomyces was studied."
+                ),
+                "created_by": "curator",
+            },
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-COMBINED-001",
+            target_id=(
+                "concept:"
+                "analysis.chromatography.gc_ms"
+            ),
+            relation_type="uses_method",
+            metadata={
+                "confidence": 0.98,
+                "source_line": 5,
+                "source_text": (
+                    "Samples were analysed by GC-MS."
+                ),
+                "created_by": "curator",
+            },
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-COMBINED-002",
+            target_id=(
+                "concept:"
+                "organism.microorganism."
+                "yeast.brettanomyces"
+            ),
+            relation_type="studies",
+        )
+    )
+
+    return graph
+
+
+def test_assistant_search_relations_combines_family_constraints():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations(
+        [
+            (
+                "studies",
+                "organism.microorganism",
+            ),
+            (
+                "uses_method",
+                "analysis",
+            ),
+        ],
+        include_families=True,
+    )
+
+    assert result.found is True
+
+    assert [
+        document.node_id
+        for document in result.documents
+    ] == [
+        "document:NRIP-COMBINED-001",
+    ]
+
+    assert len(result.relation_evidence) == 2
+
+    assert {
+        (
+            evidence.relation.relation_type,
+            evidence.concept.node_id,
+        )
+        for evidence in result.relation_evidence
+    } == {
+        (
+            "studies",
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces",
+        ),
+        (
+            "uses_method",
+            "concept:"
+            "analysis.chromatography.gc_ms",
+        ),
+    }
+
+
+def test_assistant_search_relations_preserves_provenance():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations(
+        [
+            (
+                "studies",
+                "organism.microorganism",
+            ),
+            (
+                "uses_method",
+                "analysis",
+            ),
+        ],
+        include_families=True,
+    )
+
+    evidence_by_type = {
+        evidence.relation.relation_type: evidence
+        for evidence in result.relation_evidence
+    }
+
+    studies = evidence_by_type["studies"]
+    method = evidence_by_type["uses_method"]
+
+    assert studies.relation.metadata["confidence"] == 0.95
+    assert studies.relation.metadata["source_line"] == 4
+    assert studies.relation.metadata["created_by"] == "curator"
+
+    assert method.relation.metadata["confidence"] == 0.98
+    assert method.relation.metadata["source_line"] == 5
+    assert method.relation.metadata["created_by"] == "curator"
+
+
+def test_assistant_search_relations_is_exact_by_default():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations(
+        [
+            (
+                "studies",
+                "organism.microorganism",
+            ),
+            (
+                "uses_method",
+                "analysis",
+            ),
+        ]
+    )
+
+    assert result.found is False
+    assert result.documents == []
+    assert result.relation_evidence == []
+
+
+def test_assistant_search_relations_no_match():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations(
+        [
+            (
+                "uses_method",
+                "organism.microorganism",
+            ),
+        ],
+        include_families=True,
+    )
+
+    assert result.found is False
+    assert result.documents == []
+    assert result.relation_evidence == []
+
+
+def test_assistant_search_relations_excludes_partial_document_evidence():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations(
+        [
+            (
+                "studies",
+                "organism.microorganism",
+            ),
+            (
+                "uses_method",
+                "analysis",
+            ),
+        ],
+        include_families=True,
+    )
+
+    assert {
+        evidence.document.node_id
+        for evidence in result.relation_evidence
+    } == {
+        "document:NRIP-COMBINED-001",
+    }
+
+
+def test_assistant_search_relations_empty_constraints():
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    result = engine.search_relations([])
+
+    assert result.constraints == []
+    assert result.found is False
+    assert result.documents == []
+    assert result.relation_evidence == []
+
+
+def test_assistant_search_relations_rejects_non_list():
+    import pytest
+
+    engine = AssistantEngine(
+        graph=make_combined_relation_search_graph()
+    )
+
+    with pytest.raises(TypeError):
+        engine.search_relations(
+            (
+                (
+                    "studies",
+                    "organism.microorganism",
+                ),
+            )
+        )

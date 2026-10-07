@@ -43,6 +43,25 @@ class AssistantRelationEvidence:
 
 
 @dataclass(slots=True)
+class AssistantRelationSearchResult:
+    """
+    Resultat d'une recherche scientifique
+    multi-relationnelle.
+    """
+
+    constraints: list[tuple[str, str]]
+    found: bool
+    documents: list[GraphNode] = field(
+        default_factory=list
+    )
+    relation_evidence: list[
+        AssistantRelationEvidence
+    ] = field(
+        default_factory=list
+    )
+
+
+@dataclass(slots=True)
 class AssistantResult:
     """
     Resultat structure d'une recherche scientifique.
@@ -259,6 +278,118 @@ class AssistantEngine:
                 )
             ),
             evidence=evidence,
+            relation_evidence=relation_evidence,
+        )
+
+    def search_relations(
+        self,
+        constraints: list[tuple[str, str]],
+        *,
+        include_families: bool = False,
+    ) -> AssistantRelationSearchResult:
+        """
+        Recherche des documents satisfaisant plusieurs
+        contraintes relationnelles.
+
+        Les preuves conservent les GraphEdge reelles
+        et les concepts effectivement cibles.
+        """
+
+        if include_families:
+            documents = (
+                self.query_service
+                .documents_matching_relation_families(
+                    constraints
+                )
+            )
+        else:
+            documents = (
+                self.query_service
+                .documents_matching_relations(
+                    constraints
+                )
+            )
+
+        document_ids = {
+            document.node_id
+            for document in documents
+        }
+
+        relation_evidence: list[
+            AssistantRelationEvidence
+        ] = []
+
+        for relation_type, concept_id in constraints:
+            normalized_relation_type = (
+                self.query_service._relation_type(
+                    relation_type
+                )
+            )
+
+            concept_node_id = (
+                self.query_service._concept_node_id(
+                    concept_id
+                )
+            )
+
+            concept_nodes: list[GraphNode] = []
+
+            concept_node = self.graph.nodes.get(
+                concept_node_id
+            )
+
+            if (
+                concept_node is not None
+                and concept_node.node_type == "concept"
+            ):
+                concept_nodes.append(
+                    concept_node
+                )
+
+            if include_families:
+                concept_nodes.extend(
+                    self.query_service.descendants_of(
+                        concept_node_id
+                    )
+                )
+
+            for concept in concept_nodes:
+                edges = (
+                    self.query_service.incoming_relations(
+                        concept.node_id,
+                        relation_type=(
+                            normalized_relation_type
+                        ),
+                    )
+                )
+
+                for edge in edges:
+                    if edge.source_id not in document_ids:
+                        continue
+
+                    document = self.graph.nodes.get(
+                        edge.source_id
+                    )
+
+                    if (
+                        document is None
+                        or document.node_type
+                        != "document"
+                    ):
+                        continue
+
+                    relation_evidence.append(
+                        AssistantRelationEvidence(
+                            document=document,
+                            concept=concept,
+                            relation=edge,
+                        )
+                    )
+
+        return AssistantRelationSearchResult(
+            constraints=list(constraints),
+            found=bool(documents),
+            documents=documents,
             relation_evidence=relation_evidence,
         )
 
