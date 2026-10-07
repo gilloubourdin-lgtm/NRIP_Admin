@@ -1224,3 +1224,349 @@ def test_documents_matching_relations_duplicate_constraint_is_idempotent():
         "document:NRIP-MULTI-001",
         "document:NRIP-MULTI-002",
     ]
+
+
+def make_relation_family_graph():
+    graph = KnowledgeGraph()
+
+    graph.add_node(
+        GraphNode(
+            node_id="document:NRIP-FAMILY-001",
+            node_type="document",
+            label="Brettanomyces study",
+        )
+    )
+
+    graph.add_node(
+        GraphNode(
+            node_id="document:NRIP-FAMILY-002",
+            node_type="document",
+            label="Direct microorganism study",
+        )
+    )
+
+    for concept_id, label in (
+        (
+            "concept:microorganism",
+            "Microorganism",
+        ),
+        (
+            "concept:yeast",
+            "Yeast",
+        ),
+        (
+            "concept:brettanomyces",
+            "Brettanomyces",
+        ),
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=concept_id,
+                node_type="concept",
+                label=label,
+            )
+        )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:yeast",
+            target_id="concept:microorganism",
+            relation_type="is_a",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:brettanomyces",
+            target_id="concept:yeast",
+            relation_type="is_a",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-001",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-002",
+            target_id="concept:microorganism",
+            relation_type="studies",
+        )
+    )
+
+    return graph
+
+
+def test_documents_matching_relation_families_includes_descendants():
+    service = GraphQueryService(
+        make_relation_family_graph()
+    )
+
+    documents = (
+        service.documents_matching_relation_families(
+            [
+                (
+                    "studies",
+                    "microorganism",
+                ),
+            ]
+        )
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-FAMILY-001",
+        "document:NRIP-FAMILY-002",
+    ]
+
+
+def test_exact_relation_matching_does_not_expand_family():
+    service = GraphQueryService(
+        make_relation_family_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "microorganism",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-FAMILY-002",
+    ]
+
+
+def make_multi_family_relation_graph():
+    graph = KnowledgeGraph()
+
+    for document_id in (
+        "document:NRIP-FAMILY-MULTI-001",
+        "document:NRIP-FAMILY-MULTI-002",
+        "document:NRIP-FAMILY-MULTI-003",
+        "document:NRIP-FAMILY-MULTI-004",
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=document_id,
+                node_type="document",
+                label=document_id,
+            )
+        )
+
+    for concept_id, label in (
+        (
+            "concept:microorganism",
+            "Microorganism",
+        ),
+        (
+            "concept:brettanomyces",
+            "Brettanomyces",
+        ),
+        (
+            "concept:analysis_method",
+            "Analysis method",
+        ),
+        (
+            "concept:gc_ms",
+            "GC-MS",
+        ),
+    ):
+        graph.add_node(
+            GraphNode(
+                node_id=concept_id,
+                node_type="concept",
+                label=label,
+            )
+        )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:brettanomyces",
+            target_id="concept:microorganism",
+            relation_type="is_a",
+        )
+    )
+
+    graph.add_edge(
+        GraphEdge(
+            source_id="concept:gc_ms",
+            target_id="concept:analysis_method",
+            relation_type="is_a",
+        )
+    )
+
+    # Doc 1 satisfait les deux contraintes via descendants.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-001",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-001",
+            target_id="concept:gc_ms",
+            relation_type="uses_method",
+        )
+    )
+
+    # Doc 2 satisfait seulement la famille organisme.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-002",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+
+    # Doc 3 satisfait seulement la famille methode.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-003",
+            target_id="concept:gc_ms",
+            relation_type="uses_method",
+        )
+    )
+
+    # Doc 4 ne fait que mentionner les deux descendants.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-004",
+            target_id="concept:brettanomyces",
+            relation_type="mentions",
+        )
+    )
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-FAMILY-MULTI-004",
+            target_id="concept:gc_ms",
+            relation_type="mentions",
+        )
+    )
+
+    return graph
+
+
+def test_documents_matching_relation_families_uses_and_between_families():
+    service = GraphQueryService(
+        make_multi_family_relation_graph()
+    )
+
+    documents = (
+        service.documents_matching_relation_families(
+            [
+                (
+                    "studies",
+                    "microorganism",
+                ),
+                (
+                    "uses_method",
+                    "analysis_method",
+                ),
+            ]
+        )
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-FAMILY-MULTI-001",
+    ]
+
+
+def test_documents_matching_relation_families_do_not_use_mentions():
+    service = GraphQueryService(
+        make_multi_family_relation_graph()
+    )
+
+    documents = (
+        service.documents_matching_relation_families(
+            [
+                (
+                    "studies",
+                    "microorganism",
+                ),
+                (
+                    "uses_method",
+                    "analysis_method",
+                ),
+            ]
+        )
+    )
+
+    assert (
+        "document:NRIP-FAMILY-MULTI-004"
+        not in {
+            document.node_id
+            for document in documents
+        }
+    )
+
+
+def test_documents_matching_relation_families_empty_constraints():
+    service = GraphQueryService(
+        make_relation_family_graph()
+    )
+
+    assert (
+        service.documents_matching_relation_families(
+            []
+        )
+        == []
+    )
+
+
+def test_documents_matching_relation_families_rejects_non_list():
+    service = GraphQueryService(
+        make_relation_family_graph()
+    )
+
+    try:
+        service.documents_matching_relation_families(
+            (
+                (
+                    "studies",
+                    "microorganism",
+                ),
+            )
+        )
+    except TypeError:
+        pass
+    else:
+        raise AssertionError(
+            "TypeError attendu pour constraints non-list."
+        )
+
+
+def test_documents_matching_relation_families_no_match():
+    service = GraphQueryService(
+        make_relation_family_graph()
+    )
+
+    documents = (
+        service.documents_matching_relation_families(
+            [
+                (
+                    "uses_method",
+                    "microorganism",
+                ),
+            ]
+        )
+    )
+
+    assert documents == []

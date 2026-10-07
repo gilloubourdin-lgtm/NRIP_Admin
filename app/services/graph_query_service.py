@@ -163,6 +163,107 @@ class GraphQueryService:
             )
         ]
 
+    def documents_matching_relation_families(
+        self,
+        constraints: list[tuple[str, str]],
+    ) -> list[GraphNode]:
+        """
+        Retourne les documents satisfaisant toutes
+        les contraintes relationnelles en incluant
+        les descendants taxonomiques des concepts.
+
+        Chaque contrainte est un tuple :
+            (relation_type, concept_id)
+
+        Les concepts d'une meme famille sont combines
+        avec une semantique OR. Les contraintes entre
+        elles utilisent une semantique AND.
+        """
+
+        if not isinstance(constraints, list):
+            raise TypeError(
+                "constraints doit etre une liste."
+            )
+
+        if not constraints:
+            return []
+
+        matching_document_ids: (
+            set[str] | None
+        ) = None
+
+        for constraint in constraints:
+            if (
+                not isinstance(constraint, tuple)
+                or len(constraint) != 2
+            ):
+                raise TypeError(
+                    "Chaque contrainte doit etre "
+                    "un tuple (relation_type, concept_id)."
+                )
+
+            relation_type, concept_id = constraint
+
+            relation_type = self._relation_type(
+                relation_type
+            )
+            concept_node_id = self._concept_node_id(
+                concept_id
+            )
+
+            concept_nodes = (
+                [self.graph.nodes[concept_node_id]]
+                if concept_node_id in self.graph.nodes
+                else []
+            )
+
+            concept_nodes.extend(
+                self.descendants_of(
+                    concept_node_id
+                )
+            )
+
+            document_ids: set[str] = set()
+
+            for concept_node in concept_nodes:
+                edges = self.incoming_relations(
+                    concept_node.node_id,
+                    relation_type=relation_type,
+                )
+
+                document_ids.update(
+                    edge.source_id
+                    for edge in edges
+                    if (
+                        edge.source_id
+                        in self.graph.nodes
+                        and self.graph.nodes[
+                            edge.source_id
+                        ].node_type == "document"
+                    )
+                )
+
+            if matching_document_ids is None:
+                matching_document_ids = document_ids
+            else:
+                matching_document_ids &= document_ids
+
+            if not matching_document_ids:
+                return []
+
+        if matching_document_ids is None:
+            return []
+
+        return [
+            node
+            for node in self.graph.nodes.values()
+            if (
+                node.node_type == "document"
+                and node.node_id
+                in matching_document_ids
+            )
+        ]
+
     def methods_for_document(
         self,
         document_id: str,
