@@ -54,45 +54,76 @@ class ScientificAnswerRenderer:
 
         parts = [introduction]
 
+        multiple_documents = (
+            document_count > 1
+        )
+
         for document_result in (
             answer.document_results
         ):
-            studied_labels = [
-                concept.label
-                for concept
-                in document_result.studied_concepts
-            ]
+            semantic_text = (
+                self._render_document_semantics(
+                    document_result
+                )
+            )
 
-            method_labels = [
-                method.label
-                for method
-                in document_result.methods
-            ]
+            if not semantic_text:
+                continue
 
-            if studied_labels:
-                if len(studied_labels) == 1:
-                    parts.append(
-                        f"{studied_labels[0]} "
-                        "est etudie."
-                    )
-                else:
-                    parts.append(
-                        "Concepts etudies : "
-                        + ", ".join(studied_labels)
-                        + "."
-                    )
+            if multiple_documents:
+                parts.append(
+                    f"{document_result.document.label} "
+                    f": {semantic_text}"
+                )
+            else:
+                parts.append(
+                    semantic_text
+                )
 
-            if method_labels:
-                if len(method_labels) == 1:
-                    parts.append(
-                        "Methode utilisee : "
-                        f"{method_labels[0]}."
-                    )
-                else:
-                    parts.append(
-                        "Methodes utilisees : "
-                        + ", ".join(method_labels)
-                        + "."
-                    )
+        return " ".join(parts)
+
+    def _render_document_semantics(
+        self,
+        document_result,
+    ) -> str:
+        parts: list[str] = []
+
+        studied_labels = [
+            concept.label
+            for concept
+            in document_result.studied_concepts
+        ]
+
+        method_labels = [
+            method.label
+            for method
+            in document_result.methods
+        ]
+
+        if studied_labels:
+            if len(studied_labels) == 1:
+                parts.append(
+                    f"{studied_labels[0]} "
+                    "est etudie."
+                )
+            else:
+                parts.append(
+                    "Concepts etudies : "
+                    + ", ".join(studied_labels)
+                    + "."
+                )
+
+        if method_labels:
+            if len(method_labels) == 1:
+                parts.append(
+                    "Methode utilisee : "
+                    f"{method_labels[0]}."
+                )
+            else:
+                parts.append(
+                    "Methodes utilisees : "
+                    + ", ".join(method_labels)
+                    + "."
+                )
 
         return " ".join(parts)

@@ -280,3 +280,123 @@ def test_renderer_does_not_invent_text_from_other_findings():
     )
     assert "Vin" not in text
     assert "supports" not in text
+
+
+def test_renderer_attributes_semantics_to_each_document():
+    first_document = GraphNode(
+        node_id="document:NRIP-V7-ATTR-1",
+        node_type="document",
+        label="Brett study",
+    )
+
+    second_document = GraphNode(
+        node_id="document:NRIP-V7-ATTR-2",
+        node_type="document",
+        label="GC-MS study",
+    )
+
+    brett = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    gc_ms = GraphNode(
+        node_id="concept:gc_ms",
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=2,
+        evidence_count=2,
+        documents=[
+            first_document,
+            second_document,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=first_document,
+                studied_concepts=[brett],
+            ),
+            ScientificDocumentResult(
+                document=second_document,
+                methods=[gc_ms],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text == (
+        "2 documents correspondent a la recherche. "
+        "Brett study : Brettanomyces est etudie. "
+        "GC-MS study : Methode utilisee : GC-MS."
+    )
+
+
+def test_renderer_keeps_single_document_contract():
+    answer = make_structured_answer()
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text == (
+        "1 document correspond a la recherche. "
+        "Brettanomyces est etudie. "
+        "Methode utilisee : GC-MS."
+    )
+
+
+def test_renderer_skips_empty_document_in_multi_document_answer():
+    empty_document = GraphNode(
+        node_id="document:NRIP-V7-EMPTY-MULTI",
+        node_type="document",
+        label="Empty study",
+    )
+
+    evidence_document = GraphNode(
+        node_id="document:NRIP-V7-EVIDENCE",
+        node_type="document",
+        label="Brett study",
+    )
+
+    brett = GraphNode(
+        node_id="concept:brettanomyces",
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=2,
+        evidence_count=1,
+        documents=[
+            empty_document,
+            evidence_document,
+        ],
+        document_results=[
+            ScientificDocumentResult(
+                document=empty_document,
+            ),
+            ScientificDocumentResult(
+                document=evidence_document,
+                studied_concepts=[brett],
+            ),
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer
+    )
+
+    assert text == (
+        "2 documents correspondent a la recherche. "
+        "Brett study : Brettanomyces est etudie."
+    )
+
+    assert "Empty study" not in text
