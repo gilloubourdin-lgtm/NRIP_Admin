@@ -248,3 +248,190 @@ def test_structured_answer_copies_document_list():
 
     assert answer.documents == result.documents
     assert answer.documents is not result.documents
+
+
+def test_structured_answer_groups_findings_by_document():
+    document_a = GraphNode(
+        node_id="document:NRIP-V6-A",
+        node_type="document",
+        label="Study A",
+    )
+
+    document_b = GraphNode(
+        node_id="document:NRIP-V6-B",
+        node_type="document",
+        label="Study B",
+    )
+
+    brett = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    gc_ms = GraphNode(
+        node_id=(
+            "concept:"
+            "analysis.chromatography.gc_ms"
+        ),
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    evidence = [
+        AssistantRelationEvidence(
+            document=document_a,
+            concept=brett,
+            relation=GraphEdge(
+                source_id=document_a.node_id,
+                target_id=brett.node_id,
+                relation_type="studies",
+            ),
+        ),
+        AssistantRelationEvidence(
+            document=document_a,
+            concept=gc_ms,
+            relation=GraphEdge(
+                source_id=document_a.node_id,
+                target_id=gc_ms.node_id,
+                relation_type="uses_method",
+            ),
+        ),
+        AssistantRelationEvidence(
+            document=document_b,
+            concept=brett,
+            relation=GraphEdge(
+                source_id=document_b.node_id,
+                target_id=brett.node_id,
+                relation_type="studies",
+            ),
+        ),
+    ]
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[
+            document_a,
+            document_b,
+        ],
+        relation_evidence=evidence,
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert len(answer.document_results) == 2
+
+    first = answer.document_results[0]
+    second = answer.document_results[1]
+
+    assert first.document is document_a
+    assert second.document is document_b
+
+    assert [
+        finding.relation_type
+        for finding in first.findings
+    ] == [
+        "studies",
+        "uses_method",
+    ]
+
+    assert [
+        finding.concept.label
+        for finding in first.findings
+    ] == [
+        "Brettanomyces",
+        "GC-MS",
+    ]
+
+    assert [
+        finding.relation_type
+        for finding in second.findings
+    ] == [
+        "studies",
+    ]
+
+    assert second.findings[0].concept.label == (
+        "Brettanomyces"
+    )
+
+
+def test_structured_answer_empty_has_no_document_results():
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=False,
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert answer.document_results == []
+
+
+def test_structured_answer_keeps_document_without_findings():
+    document = GraphNode(
+        node_id="document:NRIP-V6-NO-EVIDENCE",
+        node_type="document",
+        label="Document without evidence",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    assert answer.document_count == 1
+    assert len(answer.document_results) == 1
+
+    document_result = answer.document_results[0]
+
+    assert document_result.document is document
+    assert document_result.findings == []
+
+
+def test_document_results_have_independent_finding_lists():
+    document_a = GraphNode(
+        node_id="document:NRIP-V6-INDEPENDENT-A",
+        node_type="document",
+        label="Independent A",
+    )
+
+    document_b = GraphNode(
+        node_id="document:NRIP-V6-INDEPENDENT-B",
+        node_type="document",
+        label="Independent B",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[
+            document_a,
+            document_b,
+        ],
+        relation_evidence=[],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    first = answer.document_results[0]
+    second = answer.document_results[1]
+
+    assert first.findings == []
+    assert second.findings == []
+    assert first.findings is not second.findings

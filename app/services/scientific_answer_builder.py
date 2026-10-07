@@ -25,6 +25,19 @@ class ScientificFinding:
 
 
 @dataclass(slots=True)
+class ScientificDocumentResult:
+    """
+    Resultat scientifique structure pour
+    un document individuel.
+    """
+
+    document: GraphNode
+    findings: list[ScientificFinding] = field(
+        default_factory=list
+    )
+
+
+@dataclass(slots=True)
 class StructuredScientificAnswer:
     """
     Representation structuree et deterministe
@@ -38,6 +51,11 @@ class StructuredScientificAnswer:
         default_factory=list
     )
     findings: list[ScientificFinding] = field(
+        default_factory=list
+    )
+    document_results: list[
+        ScientificDocumentResult
+    ] = field(
         default_factory=list
     )
 
@@ -91,6 +109,27 @@ class ScientificAnswerBuilder:
                 )
             )
 
+        document_results: list[
+            ScientificDocumentResult
+        ] = []
+
+        for document in result.documents:
+            document_findings = [
+                finding
+                for finding in findings
+                if (
+                    finding.document.node_id
+                    == document.node_id
+                )
+            ]
+
+            document_results.append(
+                ScientificDocumentResult(
+                    document=document,
+                    findings=document_findings,
+                )
+            )
+
         return StructuredScientificAnswer(
             found=result.found,
             document_count=len(result.documents),
@@ -99,4 +138,5 @@ class ScientificAnswerBuilder:
             ),
             documents=list(result.documents),
             findings=findings,
+            document_results=document_results,
         )
