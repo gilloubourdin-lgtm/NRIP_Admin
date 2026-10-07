@@ -827,3 +827,282 @@ def test_scientific_business_queries_real_pipeline():
     assert studies.metadata["confidence"] == 0.94
     assert uses_method.metadata["source_line"] == 3
     assert studies.metadata["source_line"] == 3
+
+
+def make_multi_relation_graph():
+    graph = KnowledgeGraph()
+
+    documents = (
+        "document:NRIP-MULTI-001",
+        "document:NRIP-MULTI-002",
+        "document:NRIP-MULTI-003",
+        "document:NRIP-MULTI-004",
+    )
+
+    for document_id in documents:
+        graph.add_node(
+            GraphNode(
+                node_id=document_id,
+                node_type="document",
+                label=document_id,
+            )
+        )
+
+    graph.add_node(
+        GraphNode(
+            node_id="concept:brettanomyces",
+            node_type="concept",
+            label="Brettanomyces",
+        )
+    )
+
+    graph.add_node(
+        GraphNode(
+            node_id="concept:gc_ms",
+            node_type="concept",
+            label="GC-MS",
+        )
+    )
+
+    # Document 1 satisfait les deux contraintes.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-001",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-001",
+            target_id="concept:gc_ms",
+            relation_type="uses_method",
+        )
+    )
+
+    # Document 2 etudie Brettanomyces seulement.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-002",
+            target_id="concept:brettanomyces",
+            relation_type="studies",
+        )
+    )
+
+    # Document 3 utilise GC-MS seulement.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-003",
+            target_id="concept:gc_ms",
+            relation_type="uses_method",
+        )
+    )
+
+    # Document 4 mentionne les deux concepts,
+    # mais ne porte aucune relation scientifique.
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-004",
+            target_id="concept:brettanomyces",
+            relation_type="mentions",
+        )
+    )
+    graph.add_edge(
+        GraphEdge(
+            source_id="document:NRIP-MULTI-004",
+            target_id="concept:gc_ms",
+            relation_type="mentions",
+        )
+    )
+
+    return graph
+
+
+def test_documents_matching_relations_uses_and_semantics():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "brettanomyces",
+            ),
+            (
+                "uses_method",
+                "gc_ms",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-MULTI-001",
+    ]
+
+
+def test_documents_matching_relations_single_constraint():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "brettanomyces",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-MULTI-001",
+        "document:NRIP-MULTI-002",
+    ]
+
+
+def test_documents_matching_relations_do_not_use_mentions():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "brettanomyces",
+            ),
+            (
+                "uses_method",
+                "gc_ms",
+            ),
+        ]
+    )
+
+    assert (
+        "document:NRIP-MULTI-004"
+        not in {
+            document.node_id
+            for document in documents
+        }
+    )
+
+
+def test_documents_matching_relations_no_match():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "studies",
+                "gc_ms",
+            ),
+            (
+                "uses_method",
+                "brettanomyces",
+            ),
+        ]
+    )
+
+    assert documents == []
+
+
+def test_documents_matching_relations_empty_constraints():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    assert service.documents_matching_relations(
+        []
+    ) == []
+
+
+def test_documents_matching_relations_rejects_non_list():
+    import pytest
+
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    with pytest.raises(TypeError):
+        service.documents_matching_relations(
+            (
+                (
+                    "studies",
+                    "brettanomyces",
+                ),
+            )
+        )
+
+
+def test_documents_matching_relations_rejects_invalid_constraint():
+    import pytest
+
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    with pytest.raises(TypeError):
+        service.documents_matching_relations(
+            [
+                (
+                    "studies",
+                    "brettanomyces",
+                    "extra",
+                ),
+            ]
+        )
+
+
+def test_documents_matching_relations_normalizes_relation_type():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "  STUDIES  ",
+                "brettanomyces",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-MULTI-001",
+        "document:NRIP-MULTI-002",
+    ]
+
+
+def test_documents_matching_relations_accepts_prefixed_concept():
+    service = GraphQueryService(
+        make_multi_relation_graph()
+    )
+
+    documents = service.documents_matching_relations(
+        [
+            (
+                "uses_method",
+                "concept:gc_ms",
+            ),
+        ]
+    )
+
+    assert [
+        document.node_id
+        for document in documents
+    ] == [
+        "document:NRIP-MULTI-001",
+        "document:NRIP-MULTI-003",
+    ]
