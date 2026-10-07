@@ -9,6 +9,22 @@ from app.services.assistant_engine import (
 
 
 @dataclass(slots=True)
+class ScientificCitation:
+    """
+    Provenance explicite d'une preuve scientifique.
+
+    La citation identifie le document source et,
+    lorsqu'elles existent, les informations de
+    localisation et de creation de la preuve.
+    """
+
+    document: GraphNode
+    source_line: int | None = None
+    source_text: str | None = None
+    created_by: str | None = None
+
+
+@dataclass(slots=True)
 class ScientificFinding:
     """
     Preuve scientifique structuree destinee
@@ -18,6 +34,7 @@ class ScientificFinding:
     document: GraphNode
     concept: GraphNode
     relation_type: str
+    citation: ScientificCitation | None = None
     confidence: float | None = None
     source_line: int | None = None
     source_text: str | None = None
@@ -111,6 +128,18 @@ class ScientificAnswerBuilder:
                     concept=evidence.concept,
                     relation_type=(
                         evidence.relation.relation_type
+                    ),
+                    citation=ScientificCitation(
+                        document=evidence.document,
+                        source_line=metadata.get(
+                            "source_line"
+                        ),
+                        source_text=metadata.get(
+                            "source_text"
+                        ),
+                        created_by=metadata.get(
+                            "created_by"
+                        ),
                     ),
                     confidence=metadata.get(
                         "confidence"

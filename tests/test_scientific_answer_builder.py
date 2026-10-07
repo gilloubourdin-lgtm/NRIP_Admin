@@ -797,3 +797,66 @@ def test_document_result_empty_counts_are_zero():
     assert document_result.finding_count == 0
     assert document_result.studied_concept_count == 0
     assert document_result.method_count == 0
+
+
+def test_structured_answer_builds_explicit_citation():
+    result = make_relation_result()
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    finding = answer.findings[0]
+
+    assert finding.citation is not None
+    assert finding.citation.document is finding.document
+    assert finding.citation.source_line == 12
+    assert finding.citation.source_text == (
+        "Brettanomyces was analysed."
+    )
+    assert finding.citation.created_by == "curator"
+
+
+def test_structured_answer_builds_empty_citation_without_provenance():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CITATION-EMPTY",
+        node_type="document",
+        label="Study without citation metadata",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    relation = GraphEdge(
+        source_id=document.node_id,
+        target_id=concept.node_id,
+        relation_type="studies",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=concept,
+                relation=relation,
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    citation = answer.findings[0].citation
+
+    assert citation is not None
+    assert citation.document is document
+    assert citation.source_line is None
+    assert citation.source_text is None
+    assert citation.created_by is None
