@@ -1186,3 +1186,206 @@ def test_renderer_keeps_v7_output_when_citations_are_disabled():
     assert explicit_text == expected
     assert "[" not in default_text
     assert "[" not in explicit_text
+
+
+def test_renderer_can_render_answer_confidence():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-RENDER",
+        node_type="document",
+        label="Confidence rendering study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        confidence=0.87,
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            )
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_confidence=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Confiance : 87 %. "
+        "Vin est étudié."
+    )
+
+
+def test_renderer_omits_unknown_confidence():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-UNKNOWN",
+        node_type="document",
+        label="Unknown confidence study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        confidence=None,
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            )
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_confidence=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Vin est étudié."
+    )
+
+
+def test_renderer_keeps_output_when_confidence_is_disabled():
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-DISABLED",
+        node_type="document",
+        label="Confidence disabled study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        confidence=0.87,
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            )
+        ],
+    )
+
+    renderer = ScientificAnswerRenderer()
+
+    default_text = renderer.render(answer)
+
+    explicit_text = renderer.render(
+        answer,
+        include_confidence=False,
+    )
+
+    expected = (
+        "1 document correspond à la recherche. "
+        "Vin est étudié."
+    )
+
+    assert default_text == expected
+    assert explicit_text == expected
+
+
+def test_renderer_combines_confidence_and_citations():
+    from app.services.scientific_answer_builder import (
+        ScientificCitation,
+    )
+
+    document = GraphNode(
+        node_id="document:NRIP-V8-CONFIDENCE-CITATION",
+        node_type="document",
+        label="Confidence citation study",
+    )
+
+    concept = GraphNode(
+        node_id="concept:wine",
+        node_type="concept",
+        label="Vin",
+    )
+
+    finding = ScientificFinding(
+        document=document,
+        concept=concept,
+        relation_type="studies",
+        citation=ScientificCitation(
+            document=document,
+            source_line=12,
+        ),
+        confidence=0.91,
+    )
+
+    answer = StructuredScientificAnswer(
+        found=True,
+        document_count=1,
+        evidence_count=1,
+        documents=[document],
+        findings=[finding],
+        document_results=[
+            ScientificDocumentResult(
+                document=document,
+                findings=[finding],
+                studied_concepts=[concept],
+            )
+        ],
+    )
+
+    text = ScientificAnswerRenderer().render(
+        answer,
+        include_citations=True,
+        include_confidence=True,
+    )
+
+    assert text == (
+        "1 document correspond à la recherche. "
+        "Confiance : 91 %. "
+        "Vin est étudié. "
+        "[Confidence citation study, ligne 12]"
+    )

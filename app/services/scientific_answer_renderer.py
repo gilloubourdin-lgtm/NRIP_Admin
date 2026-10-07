@@ -21,6 +21,7 @@ class ScientificAnswerRenderer:
         answer: StructuredScientificAnswer,
         *,
         include_citations: bool = False,
+        include_confidence: bool = False,
     ) -> str:
         if not isinstance(
             answer,
@@ -56,6 +57,17 @@ class ScientificAnswerRenderer:
             )
 
         parts = [introduction]
+
+        if (
+            include_confidence
+            and answer.confidence is not None
+        ):
+            confidence_percent = round(
+                answer.confidence * 100
+            )
+            parts.append(
+                f"Confiance : {confidence_percent} %."
+            )
 
         multiple_documents = (
             document_count > 1
