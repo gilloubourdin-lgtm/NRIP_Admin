@@ -700,3 +700,100 @@ def test_semantic_summary_deduplicates_methods():
     assert document_result.methods == [
         gc_ms
     ]
+
+
+def test_document_result_exposes_deterministic_counts():
+    document = GraphNode(
+        node_id="document:NRIP-V6-COUNTS",
+        node_type="document",
+        label="Counted study",
+    )
+
+    brett = GraphNode(
+        node_id=(
+            "concept:"
+            "organism.microorganism."
+            "yeast.brettanomyces"
+        ),
+        node_type="concept",
+        label="Brettanomyces",
+    )
+
+    gc_ms = GraphNode(
+        node_id=(
+            "concept:"
+            "analysis.chromatography.gc_ms"
+        ),
+        node_type="concept",
+        label="GC-MS",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[
+            AssistantRelationEvidence(
+                document=document,
+                concept=brett,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=brett.node_id,
+                    relation_type="studies",
+                ),
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=brett,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=brett.node_id,
+                    relation_type="studies",
+                ),
+            ),
+            AssistantRelationEvidence(
+                document=document,
+                concept=gc_ms,
+                relation=GraphEdge(
+                    source_id=document.node_id,
+                    target_id=gc_ms.node_id,
+                    relation_type="uses_method",
+                ),
+            ),
+        ],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert document_result.finding_count == 3
+    assert document_result.studied_concept_count == 1
+    assert document_result.method_count == 1
+
+
+def test_document_result_empty_counts_are_zero():
+    document = GraphNode(
+        node_id="document:NRIP-V6-COUNTS-EMPTY",
+        node_type="document",
+        label="Empty counted study",
+    )
+
+    result = AssistantRelationSearchResult(
+        constraints=[],
+        found=True,
+        documents=[document],
+        relation_evidence=[],
+    )
+
+    answer = ScientificAnswerBuilder().build(
+        result
+    )
+
+    document_result = answer.document_results[0]
+
+    assert document_result.finding_count == 0
+    assert document_result.studied_concept_count == 0
+    assert document_result.method_count == 0

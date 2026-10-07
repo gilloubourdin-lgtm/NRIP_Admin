@@ -42,6 +42,18 @@ class ScientificDocumentResult:
         default_factory=list
     )
 
+    @property
+    def finding_count(self) -> int:
+        return len(self.findings)
+
+    @property
+    def studied_concept_count(self) -> int:
+        return len(self.studied_concepts)
+
+    @property
+    def method_count(self) -> int:
+        return len(self.methods)
+
 
 @dataclass(slots=True)
 class StructuredScientificAnswer:
