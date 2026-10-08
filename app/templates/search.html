@@ -1,0 +1,85 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Recherche scientifique - NRIP Admin{% endblock %}
+
+{% block page_title %}Recherche scientifique{% endblock %}
+
+{% block content %}
+
+<section class="card">
+    <h2>Rechercher dans le corpus scientifique</h2>
+
+    <p>
+        Recherchez un concept reconnu dans la taxonomie NRIP.
+        Les documents affiches contiennent des occurrences
+        detectees de ce concept.
+    </p>
+
+    <form action="/search/" method="get">
+        <label for="scientific-query">
+            Concept scientifique
+        </label>
+
+        <input
+            id="scientific-query"
+            type="search"
+            name="query"
+            value="{{ query }}"
+            placeholder="Exemple : Brettanomyces"
+            required
+        >
+
+        <button class="button primary" type="submit">
+            Rechercher
+        </button>
+    </form>
+</section>
+
+{% if result is not none %}
+
+<section class="card">
+    <h2>Resultats de recherche</h2>
+
+    <p>
+        Concept recherche : <strong>{{ query }}</strong>
+    </p>
+
+    {% if result.documents %}
+
+        <p>
+            {{ result.documents | length }}
+            document(s) contenant ce concept.
+        </p>
+
+        <ul>
+            {% for document in result.documents %}
+            <li>
+                <strong>{{ document.label }}</strong>
+                {% if document.metadata.get("relative_path") %}
+                <span>
+                    — {{ document.metadata["relative_path"] }}
+                </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+
+        <p>
+            Ces correspondances indiquent la presence
+            du concept dans les documents, sans etablir
+            de relation scientifique supplementaire.
+        </p>
+
+    {% else %}
+
+        <p>
+            Aucun document correspondant au concept
+            recherche n'a ete trouve.
+        </p>
+
+    {% endif %}
+</section>
+
+{% endif %}
+
+{% endblock %}

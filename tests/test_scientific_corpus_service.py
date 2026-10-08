@@ -116,3 +116,133 @@ def test_scientific_corpus_enriches_taxonomy(
     )
 
     assert "concept:wine" in result.graph.nodes
+
+
+def test_corpus_handles_duplicate_document_ids(
+    tmp_path,
+) -> None:
+    from app.services.scientific_corpus_service import (
+        ScientificCorpusService,
+    )
+
+    first = tmp_path / "volume"
+    second = tmp_path / "volume" / "part"
+    first.mkdir()
+    second.mkdir()
+
+    (first / "NRIP-102_Foreword.md").write_text(
+        "# Foreword\n\nLe vin est analyse.\n",
+        encoding="utf-8",
+    )
+
+    (second / "NRIP-102_Copyright.md").write_text(
+        "# Copyright\n\nLe vin est etudie.\n",
+        encoding="utf-8",
+    )
+
+    corpus = ScientificCorpusService().load(tmp_path)
+
+    assert len(corpus.documents) == 2
+
+    document_nodes = [
+        node
+        for node in corpus.graph.nodes.values()
+        if node.node_type == "document"
+    ]
+
+    assert len(document_nodes) == 2
+    assert len({
+        node.node_id
+        for node in document_nodes
+    }) == 2
+
+
+def test_corpus_preserves_original_ids_after_disambiguation(
+    tmp_path,
+) -> None:
+    from app.services.scientific_corpus_service import (
+        ScientificCorpusService,
+    )
+
+    first = tmp_path / "volume"
+    second = tmp_path / "volume" / "part"
+    first.mkdir()
+    second.mkdir()
+
+    (first / "NRIP-102_Foreword.md").write_text(
+        "# Foreword\n\nLe vin est analyse.\n",
+        encoding="utf-8",
+    )
+
+    (second / "NRIP-102_Copyright.md").write_text(
+        "# Copyright\n\nLe vin est etudie.\n",
+        encoding="utf-8",
+    )
+
+    corpus = ScientificCorpusService().load(tmp_path)
+
+    assert len(corpus.documents) == 2
+
+    assert {
+        document.document_id
+        for document in corpus.documents
+    } == {"NRIP-102"}
+
+    document_nodes = [
+        node
+        for node in corpus.graph.nodes.values()
+        if node.node_type == "document"
+    ]
+
+    assert {
+        node.metadata["document_id"]
+        for node in document_nodes
+    } == {"NRIP-102"}
+
+    assert {
+        node.metadata["relative_path"]
+        for node in document_nodes
+    } == {
+        "volume/NRIP-102_Foreword.md",
+        "volume/part/NRIP-102_Copyright.md",
+    }
+
+
+def test_corpus_rejects_technical_id_collision(
+    tmp_path,
+) -> None:
+    import pytest
+
+    from app.services.scientific_corpus_service import (
+        ScientificCorpusService,
+    )
+
+    first = tmp_path / "a"
+    second = tmp_path / "b"
+
+    first.mkdir()
+    second.mkdir()
+
+    (first / "NRIP-102_Foreword.md").write_text(
+        "# Foreword\n",
+        encoding="utf-8",
+    )
+
+    (second / "NRIP-102_Copyright.md").write_text(
+        "# Copyright\n",
+        encoding="utf-8",
+    )
+
+    (tmp_path / "special.md").write_text(
+        "---\n"
+        "document_id: NRIP-102@a/NRIP-102_Foreword.md\n"
+        "---\n"
+        "# Special document\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Collision d'identifiant technique",
+    ):
+        ScientificCorpusService().load(tmp_path)

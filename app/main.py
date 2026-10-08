@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import PROJECT_ROOT, get_settings
 from app.routers.dashboard import router as dashboard_router
 from app.routers.documents import router as documents_router
+from app.routers.search import router as search_router
 from app.services.catalog_service import (
     build_catalog_summary,
     scan_nrip_documents,
@@ -36,6 +37,7 @@ app.mount(
 
 app.include_router(dashboard_router)
 app.include_router(documents_router)
+app.include_router(search_router)
 
 
 @app.get("/api/catalog/summary", tags=["api"])
