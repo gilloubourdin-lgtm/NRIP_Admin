@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Recherche scientifique - NRIP Admin{% endblock %}
 
@@ -44,38 +44,181 @@
         Concept recherche : <strong>{{ query }}</strong>
     </p>
 
-    {% if result.documents %}
+    {% if not result.found and result.concept_id %}
+        <h2>Concept identifié dans la taxonomie</h2>
+        <p>
+            <strong>Concept :</strong>
+            {{ result.concept_label }}
+        </p>
+        <p>
+            <strong>Identifiant du concept :</strong>
+            {{ result.concept_id }}
+        </p>
+        <p>
+            Ce concept est connu de la taxonomie,
+            mais aucun noeud conceptuel correspondant
+            n'est présent dans le graphe scientifique chargé.
+        </p>
+    {% elif not result.found %}
+
+        <h3>Concept non reconnu</h3>
 
         <p>
-            {{ result.documents | length }}
-            document(s) contenant ce concept.
+            Le concept recherche n'a pas ete reconnu
+            dans la taxonomie scientifique NRIP.
         </p>
-
-        <ul>
-            {% for document in result.documents %}
-            <li>
-                <strong>{{ document.label }}</strong>
-                {% if document.metadata.get("relative_path") %}
-                <span>
-                    — {{ document.metadata["relative_path"] }}
-                </span>
-                {% endif %}
-            </li>
-            {% endfor %}
-        </ul>
-
-        <p>
-            Ces correspondances indiquent la presence
-            du concept dans les documents, sans etablir
-            de relation scientifique supplementaire.
-        </p>
-
-    {% else %}
 
         <p>
             Aucun document correspondant au concept
             recherche n'a ete trouve.
         </p>
+
+    {% else %}
+
+        <h3>Concept reconnu</h3>
+
+        <p>
+            Libelle du concept :
+            <strong>{{ result.concept_label }}</strong>
+        </p>
+
+        <p>
+            Identifiant du concept :
+            <code>{{ result.concept_id }}</code>
+        </p>
+
+        <h3>Documents correspondants</h3>
+
+        {% if result.documents %}
+
+            <p>
+                {{ result.documents | length }}
+                document(s) contenant ce concept.
+            </p>
+
+            <ul>
+                {% for document in result.documents %}
+                <li>
+                    <strong>{{ document.label }}</strong>
+
+                    {% if document.metadata.get("relative_path") %}
+                    <span>
+                        —
+                        {{ document.metadata["relative_path"] }}
+                    </span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+
+            <p>
+                Ces correspondances indiquent la presence
+                du concept dans les documents, sans etablir
+                de relation scientifique supplementaire.
+            </p>
+
+        {% else %}
+
+            <p>
+                Aucun document correspondant au concept
+                recherche n'a ete trouve.
+            </p>
+
+        {% endif %}
+
+        {% if result.evidence %}
+
+            <h3>Preuves d'occurrence</h3>
+
+            <p>
+                Occurrences detectees dans le corpus.
+                Elles ne constituent pas, a elles seules,
+                des conclusions scientifiques.
+            </p>
+
+            <ul>
+                {% for evidence in result.evidence %}
+                <li>
+                    <strong>{{ evidence.document.label }}</strong>
+
+                    {% if evidence.document.metadata.get("relative_path") %}
+                    <span>
+                        —
+                        {{ evidence.document.metadata["relative_path"] }}
+                    </span>
+                    {% endif %}
+
+                    {% if evidence.occurrence.source_line is not none %}
+                    <span>
+                        — Ligne {{ evidence.occurrence.source_line }}
+                    </span>
+                    {% endif %}
+
+                    {% if evidence.occurrence.source_section %}
+                    <p>
+                        Section :
+                        {{ evidence.occurrence.source_section }}
+                    </p>
+                    {% endif %}
+
+                    {% if evidence.occurrence.source_text %}
+                    {% set source_text = evidence.occurrence.source_text %}
+                    {% if source_text|length > 300 %}
+                    <blockquote>
+                        {{ source_text[:300] }}...
+                    </blockquote>
+                    <details>
+                        <summary>Consulter le texte source integral</summary>
+                        <blockquote>
+                            {{ source_text }}
+                        </blockquote>
+                    </details>
+                    {% else %}
+                    <blockquote>
+                        {{ source_text }}
+                    </blockquote>
+                    {% endif %}
+                    {% else %}
+                    <p>
+                        Terme detecte :
+                        {{ evidence.occurrence.value }}
+                    </p>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+
+        {% endif %}
+
+        {% if result.relation_evidence %}
+
+            <h3>Relations explicites</h3>
+
+            <p>
+                Relations documentaires presentes dans
+                le graphe scientifique.
+            </p>
+
+            <ul>
+                {% for evidence in result.relation_evidence %}
+                <li>
+                    <strong>{{ evidence.document.label }}</strong>
+                    —
+                    {{ evidence.relation.relation_type }}
+                    —
+                    {{ evidence.concept.label }}
+
+                    {% if evidence.document.metadata.get("relative_path") %}
+                    <span>
+                        —
+                        {{ evidence.document.metadata["relative_path"] }}
+                    </span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+
+        {% endif %}
 
     {% endif %}
 </section>
