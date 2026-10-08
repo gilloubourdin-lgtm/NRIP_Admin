@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -19,6 +19,18 @@ templates = Jinja2Templates(
     directory=str(PROJECT_ROOT / "app" / "templates")
 )
 
+
+
+from urllib.parse import quote
+
+
+def encode_document_path(value: str) -> str:
+    return quote(value, safe="")
+
+
+templates.env.filters["document_path_urlencode"] = (
+    encode_document_path
+)
 
 @router.get("/", response_class=HTMLResponse)
 def search_page(

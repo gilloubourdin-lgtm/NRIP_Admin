@@ -41,7 +41,7 @@ Catalogue documentaire
                 {% for document in documents %}
                 <tr>
                     <td>
-                        <strong>{{ document.title }}</strong>
+                        <a href="/documents/view?path={{ document.relative_path | document_path_urlencode }}"><strong>{{ document.title }}</strong></a>
                         <small>{{ document.relative_path }}</small>
                     </td>
 

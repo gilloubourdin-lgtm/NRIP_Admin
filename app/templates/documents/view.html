@@ -1,0 +1,48 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Document scientifique - NRIP Admin{% endblock %}
+
+{% block page_title %}Document scientifique{% endblock %}
+
+{% block content %}
+
+<section class="card">
+    <h2>{{ document.title }}</h2>
+
+    <p>
+        <strong>Document source :</strong>
+        <code>{{ relative_path }}</code>
+    </p>
+
+    <p>
+        <strong>Identifiant documentaire :</strong>
+        <code>{{ document.document_id }}</code>
+    </p>
+
+    <p>
+        <strong>Type :</strong>
+        {{ document.document_type }}
+    </p>
+
+    <p>
+        <strong>Statut :</strong>
+        {{ document.status }}
+    </p>
+
+    <p>
+        <a href="/documents/">Retour au catalogue</a>
+    </p>
+</section>
+
+<section class="card">
+    <h2>Contenu source Markdown</h2>
+
+    <p>
+        Consultation en lecture seule.
+        Le contenu est affiche sans interpretation HTML.
+    </p>
+
+    <pre style="white-space: pre-wrap; overflow-wrap: anywhere;"><code>{{ document.markdown }}</code></pre>
+</section>
+
+{% endblock %}

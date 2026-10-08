@@ -99,7 +99,7 @@
             <ul>
                 {% for document in result.documents %}
                 <li>
-                    <strong>{{ document.label }}</strong>
+                    {% if document.metadata.get("relative_path") %}<a href="/documents/view?path={{ document.metadata["relative_path"] | document_path_urlencode }}"><strong>{{ document.label }}</strong></a>{% else %}<strong>{{ document.label }}</strong>{% endif %}
 
                     {% if document.metadata.get("relative_path") %}
                     <span>
@@ -139,7 +139,7 @@
             <ul>
                 {% for evidence in result.evidence %}
                 <li>
-                    <strong>{{ evidence.document.label }}</strong>
+                    {% if evidence.document.metadata.get("relative_path") %}<a href="/documents/view?path={{ evidence.document.metadata["relative_path"] | document_path_urlencode }}"><strong>{{ evidence.document.label }}</strong></a>{% else %}<strong>{{ evidence.document.label }}</strong>{% endif %}
 
                     {% if evidence.document.metadata.get("relative_path") %}
                     <span>
@@ -202,7 +202,7 @@
             <ul>
                 {% for evidence in result.relation_evidence %}
                 <li>
-                    <strong>{{ evidence.document.label }}</strong>
+                    {% if evidence.document.metadata.get("relative_path") %}<a href="/documents/view?path={{ evidence.document.metadata["relative_path"] | document_path_urlencode }}"><strong>{{ evidence.document.label }}</strong></a>{% else %}<strong>{{ evidence.document.label }}</strong>{% endif %}
                     —
                     {{ evidence.relation.relation_type }}
                     —
